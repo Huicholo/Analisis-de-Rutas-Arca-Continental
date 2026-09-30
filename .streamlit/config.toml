@@ -1,0 +1,11 @@
+[server]
+# Sirve la carpeta static/ (manual de uso) en /app/static/
+enableStaticServing = true
+
+[theme]
+primaryColor = "#F30000"
+textColor = "#000000"
+linkColor = "#F30000"
+
+[client]
+toolbarMode = "minimal"

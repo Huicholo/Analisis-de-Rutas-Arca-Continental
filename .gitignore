@@ -1,0 +1,12 @@
+# Entorno de Python (se recrea con iniciar_app.bat / requirements.txt)
+venv/
+__pycache__/
+*.pyc
+
+# Archivos temporales de Excel y del sistema
+~$*.xlsx
+.DS_Store
+Thumbs.db
+
+# Configuración local de Claude Code
+.claude/
