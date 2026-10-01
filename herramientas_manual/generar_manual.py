@@ -79,7 +79,9 @@ PUNTOS = {
                "Al pasar el cursor sobre el mapa, muestra barras con los indicadores de la zona. Barra más llena = mejor "
                "que las demás rutas."),
     "burbujas": ("Burbujas por grupo",
-                 "En CeDi, Territorio o Región dibuja un círculo por grupo: más grande = más rutas. Útil cuando el mapa está lejos."),
+                 "En CeDi, Territorio o Región dibuja un círculo por grupo. De lejos: con el color de su cuadrante o "
+                 "indicador y más grande = más rutas. De cerca (nivel ciudad): círculo blanco con la letra del nivel "
+                 "(<b>C</b> = CeDi, <b>T</b> = Territorio, <b>R</b> = Región)."),
     "vista": ("Vista del mapa",
               "A dónde llevar el mapa al pulsar <b>Ir a esta vista</b>: todo el país, el centro de Arca o justo lo que tienes filtrado."),
     "ajuste_zoom": ("Ajuste de zoom", "Acerca (+) o aleja (−) la vista elegida. Se aplica al pulsar <b>Ir a esta vista</b>."),
@@ -141,7 +143,11 @@ PUNTOS = {
     "tamano": ("Tamaño", "16:9 es el tamaño normal de una lámina de PowerPoint."),
     "resolucion": ("Resolución", "Más alto = imagen más nítida, pero tarda más y pesa más."),
     "generar": ("Generar imagen",
-                "Púlsalo y espera unos segundos. Después aparece la vista previa y el botón <b>Descargar imagen</b>."),
+                "Púlsalo y espera unos segundos. La imagen sale con la <b>misma zona y el mismo acercamiento</b> que el "
+                "mapa de arriba. Después aparece la vista previa y el botón <b>Descargar imagen</b>."),
+    "mostrar_arbol": ("Mostrar la pestaña del árbol de decisión",
+                      "El árbol de decisión está oculto. Enciende este interruptor y aparece como la primera pestaña. "
+                      "Las estrategias de cada ruta se ven siempre en el detalle del mapa."),
     # árbol
     "pestanas": ("Pestañas", "Cada pestaña muestra otra forma de ver los mismos datos. Haz clic en un nombre para abrirla."),
     "conteo_estrategias": ("Rutas por número de estrategias",
@@ -197,8 +203,8 @@ PASOS = [
     ("panel_variables", "Colorear con indicadores", "Si en el paso 3 eliges “Variables continuas”, aparecen estas opciones."),
     ("bivariado", "Ver 2 indicadores a la vez", "Con 2 indicadores en modo bivariado, el mapa y la gráfica usan una paleta de 9 colores."),
     ("exportar", "Descargar el mapa como imagen", "Para poner el mapa en una presentación, con título y buena calidad."),
-    ("arbol", "Árbol de decisión", "Qué hacer con cada ruta. En la herramienta el diagrama está guardado en un "
-     "desplegable; el siguiente paso de este manual lo explica completo."),
+    ("arbol", "Árbol de decisión", "Qué hacer con cada ruta. En la herramienta esta pestaña está oculta: se muestra "
+     "con el interruptor de arriba de las pestañas. El paso “Árbol de decisión completo” lo explica todo."),
     ("tabla", "Tabla por nivel", "Todos los datos en una tabla que puedes ordenar y descargar."),
     ("comparar", "Comparar escenarios", "Dos mapas lado a lado para ver qué rutas cambian de cuadrante entre dos escenarios."),
     ("glosario", "Glosario", "Qué significa cada indicador y cada palabra de la página."),
@@ -240,11 +246,8 @@ CONTROLES = [
     ("Panel · Paso 4", "Vista del mapa", "Vista general · Centro Arca · Ajustar a los filtros", "Vista general", "A dónde lleva el botón Ir a esta vista."),
     ("Panel · Paso 4", "Ajuste de zoom", "−6 a +4", "0", "Acerca o aleja la vista elegida."),
     ("Panel · Paso 4", "Ir a esta vista", "Botón", "—", "Mueve el mapa a la vista elegida."),
-    ("Panel · Opciones avanzadas", "Canal de polígonos", "Convencional · Web", "Las dos",
-     "Fuentes de las zonas. Deja las dos para no perder rutas web."),
-    ("Panel · Opciones avanzadas", "Distancia máxima para buscar zonas sin cobertura", "0.5 a 5 km", "2 km",
-     "Para “¿Hay potencial cercano sin cobertura?” del árbol."),
-    ("Panel · Opciones avanzadas", "Umbral Atractividad / Madurez", "0 a 100", "La mediana", "Mueve las líneas de la matriz. No lo cambies."),
+    ("Arriba de las pestañas", "Mostrar la pestaña del árbol de decisión", "Encendido / apagado", "Apagado",
+     "Muestra u oculta la pestaña del árbol de decisión."),
     ("Panel · al final", "Restablecer todo", "Botón", "—", "Regresa todo a como estaba al abrir."),
 ]
 
@@ -257,8 +260,11 @@ FAQ = [
     ("El mapa se movió a otro lugar y no sé regresar",
      "En el panel izquierdo elige <b>Vista general</b> y pulsa <b>Ir a esta vista</b>."),
     ("Moví algo y ya no sé qué cambié", "Pulsa <b>Restablecer todo</b> al final del panel izquierdo."),
-    ("Aparece un aviso amarillo de “cortes distintos a los oficiales”",
-     "Alguien movió las <b>Opciones avanzadas</b>. Pulsa <b>Restablecer todo</b> para volver a los resultados oficiales."),
+    ("No veo la pestaña del árbol de decisión",
+     "Está oculta. Arriba de las pestañas enciende <b>Mostrar la pestaña del árbol de decisión</b>."),
+    ("La imagen descargada no muestra la zona que quería",
+     "Mueve y acerca el mapa de arriba a la zona que quieres y vuelve a pulsar <b>Generar imagen</b>: sale con la "
+     "misma zona y el mismo acercamiento."),
     ("No distingo bien los colores", "Abre <b>Accesibilidad</b> en el panel izquierdo y enciende <b>Modo daltonismo</b>."),
     ("No entiendo qué significa un indicador", "Abre la pestaña <b>Glosario</b> y escribe su nombre en el buscador."),
     ("Quiero una imagen para una presentación",
@@ -429,7 +435,7 @@ def arbol_completo_html(n: int) -> str:
   <div class="svg-grande">{completo}</div>
   <h3>Valores de corte (escenario base)</h3>
   <p class="nota">{html.escape(E.resumen_cortes(ct))}. Zonas sin cobertura buscadas a {E.RADIO_SIN_COBERTURA_KM:g} km de la
-  ruta (se cambia en Opciones avanzadas).</p>
+  ruta.</p>
   <h3>Cuadrante por cuadrante</h3>
   {''.join(bloques)}
 </section>"""

@@ -20,6 +20,21 @@ st.set_page_config(page_title="Mapa de rutas · Atractividad × Madurez", layout
 URL_MANUAL = "app/static/manual.html"
 
 
+def K(nombre: str) -> str:
+    """Clave de un control con la "versión" actual: al restablecer se sube la versión y todos los controles vuelven
+    a nacer con su valor inicial."""
+    return f"{nombre}__v{st.session_state.get('reset_v', 0)}"
+
+
+def restablecer() -> None:
+    v = st.session_state.get("reset_v", 0) + 1
+    vista = st.session_state.get("encuadre_ver", 0) + 1     # también regresa el mapa a la vista inicial
+    st.session_state.clear()
+    st.session_state["reset_v"] = v
+    st.session_state["encuadre_ver"] = vista
+    st.query_params.clear()
+
+
 def encabezado(titulo: str, que_es: str, ayuda: str, nivel_titulo: str = "####") -> None:
     """Título de cada visual con su círculo "?" (al pasar el cursor explica todo) y una línea que dice
     qué se está viendo."""
@@ -92,11 +107,11 @@ st.sidebar.link_button("Abrir el manual de uso", URL_MANUAL, width="stretch", ty
                        help="Guía paso a paso con imágenes de cada parte de la herramienta. Se abre en otra pestaña.")
 with st.sidebar.expander("Accesibilidad", expanded=False):
     modo_daltonismo = st.toggle(
-        "Modo daltonismo", key="modo_daltonismo",
+        "Modo daltonismo", key=K('modo_daltonismo'),
         help="Cambia los colores por unos que se distinguen aunque la persona no vea bien el rojo y el verde "
              "(u otros colores). Además escribe el cuadrante (P1, P2…) sobre el mapa y usa formas distintas "
              "para cada cuadrante en la gráfica.")
-    texto_grande = st.toggle("Texto más grande", key="texto_grande",
+    texto_grande = st.toggle("Texto más grande", key=K('texto_grande'),
                              help="Aumenta el tamaño de todas las letras de la página.")
 C.usar_paleta("Daltonismo" if modo_daltonismo else "Normal")
 
@@ -163,14 +178,14 @@ escenario = col_esc.radio(
     index=escenarios.index(C.ESCENARIO_DEFAULT) if C.ESCENARIO_DEFAULT in escenarios else 0,
     help="Qué tan exigente es la meta contra la que se mide cada ruta. Conservador = meta más fácil, "
          "Ambicioso = meta más difícil. Cambia la MADUREZ (qué tan bien opera la ruta). Si no sabes cuál, "
-         "deja Medio.")
+         "deja Medio.", key=K("w161"))
 caso = col_caso.radio(
     "Casos de potencial", casos, horizontal=True,
     index=next((i for i, c in enumerate(casos) if caso_con_datos[c]), 0),
     format_func=lambda c: nombre_caso(c) if caso_con_datos[c] else f"{nombre_caso(c)} (sin datos)",
     help="Qué tan optimista es el cálculo del potencial de la zona de cada ruta. Conservador = potencial "
          "más bajo, Ambicioso = más alto. Cambia la ATRACTIVIDAD (qué tanto se puede crecer ahí). "
-         "Si un caso dice 'sin datos', todavía no está capturado en el Excel.")
+         "Si un caso dice 'sin datos', todavía no está capturado en el Excel.", key=K("w167"))
 if not caso_con_datos[caso]:
     st.warning(f"El caso de potencial **{nombre_caso(caso)}** ({caso}) todavía no tiene datos en "
                "'Base de datos Rutas': ninguna ruta tiene "
@@ -217,37 +232,37 @@ with st.sidebar:
     st.markdown("<span class='paso'>1</span> **¿Qué quieres ver en el mapa?**", unsafe_allow_html=True)
     nivel = st.radio("Colorear por", list(C.NIVELES), horizontal=True,
                      help="Ruta = cada ruta por separado (lo más detallado). CeDi, Territorio y Región = agrupa "
-                          "las rutas; el color es el cuadrante de la ruta 'de en medio' (mediana) del grupo.")
+                          "las rutas; el color es el cuadrante de la ruta 'de en medio' (mediana) del grupo.", key=K("w218"))
     col_nivel = C.NIVELES[nivel]
 
     st.markdown("<span class='paso'>2</span> **Filtra (opcional)**", unsafe_allow_html=True)
     st.caption("Vacío = se ven todas. Cada filtro sólo ofrece opciones que existen dentro del anterior.")
     regiones = st.multiselect("Región", sorted(df_base[C.COL_REGION].dropna().unique()),
                               placeholder="Todas las regiones",
-                              help="Deja sólo las rutas de las regiones que elijas. Puedes elegir varias.")
+                              help="Deja sólo las rutas de las regiones que elijas. Puedes elegir varias.", key=K("w225"))
     df_f = df_base[df_base[C.COL_REGION].isin(regiones)] if regiones else df_base
     territorios = st.multiselect("Territorio", sorted(df_f[C.COL_TERRITORIO].dropna().unique()),
                                  placeholder="Todos los territorios",
                                  help="Deja sólo las rutas de los territorios que elijas. Sólo aparecen los "
-                                      "territorios de las regiones elegidas arriba.")
+                                      "territorios de las regiones elegidas arriba.", key=K("w229"))
     df_f = df_f[df_f[C.COL_TERRITORIO].isin(territorios)] if territorios else df_f
     cedis = st.multiselect("CeDi", sorted(df_f[C.COL_CEDI].dropna().unique()), placeholder="Todos los CeDis",
                            help="Deja sólo las rutas de los CeDis (centros de distribución) que elijas. Sólo "
-                                "aparecen los CeDis de la región y territorio elegidos arriba.")
+                                "aparecen los CeDis de la región y territorio elegidos arriba.", key=K("w234"))
     df_f = df_f[df_f[C.COL_CEDI].isin(cedis)] if cedis else df_f
     rutas_sel = st.multiselect(
         "Ruta", sorted(df_f[C.COL_RUTA].dropna().unique(), key=lambda r: (len(r), r)),
         placeholder="Todas las rutas (escribe para buscar)",
         help="Escribe el número de la ruta para encontrarla y elígela. Puedes elegir varias. Sólo aparecen las rutas "
-             "de la región, territorio y CeDi elegidos arriba.")
+             "de la región, territorio y CeDi elegidos arriba.", key=K("w238"))
     df_f = df_f[df_f[C.COL_RUTA].isin(rutas_sel)] if rutas_sel else df_f
     dias_sel = st.multiselect("Día de visita", list(C.DIAS), default=list(C.DIAS),
                               help="Cada ruta visita zonas distintas según el día. Quita días para ver sólo el "
                                    "área que la ruta cubre esos días. No cambia los cuadrantes, sólo lo que se "
-                                   "dibuja. Si lo dejas vacío se ven todos los días.")
+                                   "dibuja. Si lo dejas vacío se ven todos los días.", key=K("w244"))
     dias = None if len(dias_sel) in (0, len(C.DIAS)) else tuple(C.DIAS[d] for d in dias_sel)
     solo_activas = st.checkbox("Solo rutas activas", value=False,
-                               help="Quita las rutas que hoy no están operando (inactivas).")
+                               help="Quita las rutas que hoy no están operando (inactivas).", key=K("w249"))
     if solo_activas:
         df_f = df_f[df_f[C.COL_ESTATUS] == "Activa"]
 
@@ -256,7 +271,7 @@ with st.sidebar:
         format_func=lambda p: p if p == C.SIN_DATOS else f"{p} · {C.CATEGORIAS[p]['nombre']}",
         help="Quita un cuadrante para esconderlo del mapa (por ejemplo, para ver sólo las rutas P1). "
              "Los conteos de la matriz no cambian.",
-    )
+     key=K("w254"))
 
     st.markdown("<span class='paso'>3</span> **¿Con qué coloreo el mapa?**", unsafe_allow_html=True)
     modo_color = st.radio("Colorear con", ["Cuadrante de la matriz", "Variables continuas"],
@@ -264,7 +279,7 @@ with st.sidebar:
                           help="Cuadrante: cada zona con el color de su cuadrante (P1 a P4). Variables continuas: "
                                "cada zona con un color más claro u oscuro según el valor de un indicador "
                                "(por ejemplo, clientes por día). Qué significa cada indicador: pestaña "
-                               "'Glosario' abajo.")
+                               "'Glosario' abajo.", key=K("w262"))
     variables_sel: list[str] = []
     modo_variables = figura.MODO_CAPAS
     if modo_color == "Variables continuas":
@@ -274,7 +289,7 @@ with st.sidebar:
             format_func=lambda v: f"{catalogo[v][2]} · {v}",
             help="Elige 1 o 2 indicadores. Color más oscuro = valor más alto. Qué significa cada uno: pestaña "
                  "'Glosario' (abajo de la página). En CeDi/Territorio/Región se usa el valor de la ruta de en medio "
-                 "(mediana).")
+                 "(mediana).", key=K("w271"))
         if not variables_sel:
             st.warning("Elige al menos un indicador en la lista de arriba para colorear el mapa.")
         modos = ([figura.MODO_BIVARIADO, figura.MODO_LADO] if len(variables_sel) == 2
@@ -283,21 +298,21 @@ with st.sidebar:
             "Cómo verlas", modos, disabled=not variables_sel,
             help="Un solo mapa: el indicador en un mapa. Bivariado (con 2 indicadores): los dos en un solo mapa; casi "
                  "negro = los dos altos, azul = sólo el 1º alto, naranja = sólo el 2º alto, gris claro = los dos bajos. "
-                 "Mapas lado a lado: un mapa por indicador (y, si quieres, el de cuadrantes); se mueven juntos.")
+                 "Mapas lado a lado: un mapa por indicador (y, si quieres, el de cuadrantes); se mueven juntos.", key=K("w282"))
         con_cuadrantes = st.toggle(
             "Agregar el mapa de cuadrantes (P)", value=True, disabled=modo_variables != figura.MODO_LADO,
             help="Sólo en 'Mapas lado a lado': pone primero un mapa con los cuadrantes P1–P4 para compararlos con los "
-                 "indicadores. Apágalo para ver sólo los indicadores.")
+                 "indicadores. Apágalo para ver sólo los indicadores.", key=K("w287"))
         es_bivariado = modo_variables == figura.MODO_BIVARIADO and len(variables_sel) == 2
         paleta_biv = figura.PALETA_BIV_DEFAULT
         paleta = st.radio(
             "Colores", [figura.PALETA_DISTINTA, figura.PALETA_SEMAFORO], disabled=es_bivariado,
             help="Un color por variable: cada indicador con su propio color (azules y naranjas). Semáforo: de "
-                 "rojo (bajo) a verde (alto); en modo daltonismo, de azul oscuro (bajo) a amarillo (alto).")
+                 "rojo (bajo) a verde (alto); en modo daltonismo, de azul oscuro (bajo) a amarillo (alto).", key=K("w293"))
         en_percentiles = st.checkbox(
             "Comparar en percentiles (0–100)", value=False, disabled=es_bivariado,
             help="Pone los indicadores en la misma escala de 0 a 100 (su posición contra las demás rutas). Úsalo "
-                 "para comparar dos mapas lado a lado. Al pasar el cursor sigues viendo el valor real.")
+                 "para comparar dos mapas lado a lado. Al pasar el cursor sigues viendo el valor real.", key=K("w297"))
     else:
         paleta, en_percentiles, es_bivariado = figura.PALETA_DISTINTA, False, False
         paleta_biv = figura.PALETA_BIV_DEFAULT
@@ -305,61 +320,44 @@ with st.sidebar:
 
     st.markdown("<span class='paso'>4</span> **Cómo se ve el mapa**", unsafe_allow_html=True)
     estilo = st.selectbox("Mapa base", list(figura.ESTILOS_MAPA),
-                          help="El fondo del mapa (calles, nombres de ciudades). No cambia los datos.")
+                          help="El fondo del mapa (calles, nombres de ciudades). No cambia los datos.", key=K("w307"))
     opacidad = st.slider("Opacidad de polígonos", 0.2, 1.0, 0.8, 0.05,
                          help="Qué tan sólido se ve el color de cada zona. Más bajo = se transparenta y ves las "
-                              "calles de abajo.")
+                              "calles de abajo.", key=K("w309"))
     etiquetas_on = st.checkbox("Etiquetas con nombre", value=nivel != "Ruta" or modo_daltonismo,
                                help="Escribe sobre el mapa el nombre de cada zona (o el número de ruta). En modo "
-                                    "daltonismo también escribe su cuadrante (P1, P2…).")
+                                    "daltonismo también escribe su cuadrante (P1, P2…).", key=K("w312"))
     contorno_on = st.checkbox("Contorno oscuro de cada ruta", value=True, disabled=nivel != "Ruta",
                               help="Borde oscuro alrededor de toda la huella de la ruta (la suma de sus "
-                                   "polígonos por día). Sólo al colorear por Ruta.")
+                                   "polígonos por día). Sólo al colorear por Ruta.", key=K("w315"))
     perfil_on = st.checkbox("Mini gráfica de perfil en el detalle", value=True,
                             help="Al pasar el cursor sobre el mapa, barras con el percentil de los 7 componentes "
-                                 "de madurez y los 4 de atractividad frente al resto de lo filtrado.")
+                                 "de madurez y los 4 de atractividad frente al resto de lo filtrado.", key=K("w318"))
     burbujas_on = st.checkbox("Burbujas por grupo (tamaño = # rutas)", value=nivel in ("Territorio", "Región"),
                               disabled=nivel == "Ruta",
-                              help="Útil en vista nacional, donde los polígonos se ven pequeños.")
+                              help="Útil en vista nacional, donde los polígonos se ven pequeños.", key=K("w321"))
     st.session_state.setdefault("encuadre_ver", 0)
     vista = st.radio("Vista del mapa", ["Vista general", "Centro Arca", "Ajustar a los filtros"],
                      help="Vista general: norte y centro de México con todas las rutas. "
                           "Centro Arca: centroide del territorio (25.804, -103.448) con zoom 12 de folium. "
                           "Ajustar a los filtros: encuadra lo que esté filtrado. El mapa conserva tu zoom y "
-                          "posición ante cualquier cambio; usa el botón para ir a esta vista.")
+                          "posición ante cualquier cambio; usa el botón para ir a esta vista.", key=K("w325"))
     ajuste_zoom = st.slider("Ajuste de zoom", -6.0, 4.0, 0.0, 0.25,
-                            help="Acerca (+) o aleja (−) la vista elegida al pulsar el botón.")
+                            help="Acerca (+) o aleja (−) la vista elegida al pulsar el botón.", key=K("w330"))
     if st.button("Ir a esta vista", width="stretch",
                  help="Mueve el mapa a la vista y zoom elegidos. Fuera de este botón, el mapa se queda "
                       "donde lo dejes."):
         st.session_state["encuadre_ver"] += 1
 
-    with st.expander("Opciones avanzadas (sólo si sabes lo que haces)"):
-        st.caption("Cambiar esto modifica los resultados oficiales. Si tienes dudas, no lo toques.")
-        canales = tuple(st.multiselect("Canal de polígonos", ["Convencional", "Web"],
-                                       default=["Convencional", "Web"],
-                                       help="De qué fuentes se dibujan las zonas de las rutas. Deja las dos: hay rutas "
-                                            "que sólo tienen zona del canal Web y si lo quitas desaparecen del mapa.")
-                        or ["Convencional", "Web"])
-        radio_ws = st.slider("Distancia máxima para buscar zonas sin cobertura (km)", 0.5, 5.0,
-                             float(estrategia.RADIO_SIN_COBERTURA_KM), 0.5,
-                             help="Para la pregunta del árbol '¿Hay potencial cercano sin cobertura?': qué tan lejos de la "
-                                  "zona de la ruta se buscan áreas que ninguna ruta cubre.")
-        umbral_x = st.number_input("Umbral Atractividad (eje X)", 0.0, 100.0, float(umbral_x_default), 1.0,
-                                   format="%.1f",
-                                   help=f"Por defecto la mediana de Atractividad redondeada a 1 decimal "
-                                        f"({umbral_x_default:g}), igual que en el Excel.")
-        umbral_y = st.number_input("Umbral Madurez (eje Y)", 0.0, 100.0, float(umbral_y_default), 0.5, format="%.1f",
-                                   help=f"Por defecto la mediana de Madurez redondeada a 1 decimal "
-                                        f"({umbral_y_default:g}), igual que en el Excel. Si cambias algún "
-                                        "umbral, el cuadrante de cada ruta se recalcula con él.")
+    # Valores oficiales (antes en "Opciones avanzadas", que se quitó para evitar cambios por error)
+    canales = ("Convencional", "Web")
+    radio_ws = float(estrategia.RADIO_SIN_COBERTURA_KM)
+    umbral_x, umbral_y = float(umbral_x_default), float(umbral_y_default)
 
     st.divider()
-    if st.button("Restablecer todo", width="stretch",
-                 help="Regresa todos los controles a como estaban al abrir la página (quita filtros, "
-                      "selecciones y cambios)."):
-        st.session_state.clear()
-        st.rerun()
+    st.button("Restablecer todo", width="stretch", on_click=restablecer,
+              help="Regresa todos los controles a como estaban al abrir la página (quita filtros, selecciones y "
+                   "cambios, y regresa el mapa a la vista inicial).")
 
 # --------------------------------------------------------------------------- cálculo
 if df_f.empty:
@@ -370,9 +368,6 @@ if not cuadrantes_visibles:
     st.warning("Quitaste todos los cuadrantes de 'Cuadrantes visibles en el mapa': el mapa quedaría vacío. "
                "Vuelve a elegir al menos uno en el panel izquierdo.")
 umbrales_default = umbral_x == umbral_x_default and umbral_y == umbral_y_default
-if not umbrales_default:
-    st.warning(f"Estás usando cortes distintos a los oficiales (Atractividad {umbral_x:g}, Madurez {umbral_y:g}). "
-               "Los cuadrantes ya no coinciden con el Excel. Para volver: *Opciones avanzadas* o **Restablecer todo**.")
 df_f = datos.aplicar_clasificacion(df_f, umbral_x, umbral_y, usar_p_excel=umbrales_default)
 geoms_ruta = geometrias(canales, dias)
 # Rutas que sólo tienen zona del canal Web: sus zonas son muy grandes y se dibujan al fondo
@@ -388,7 +383,7 @@ REFERENCIAS_PERFIL = {"filtro": "Lo que tengo filtrado", "universo": "Todas las 
 # Estándar de cada componente de madurez (columna del modelo, según el escenario de carga)
 ESTANDAR_DE = dict(zip(modelo.KPIS, modelo.KPIS_EST))
 # El control está abajo del título del mapa, pero su valor se necesita antes para armar el detalle
-referencia_perfil = st.session_state.get("referencia_perfil", "filtro")
+referencia_perfil = st.session_state.get(K("referencia_perfil"), "filtro")
 
 
 def _posicion(valores: pd.Series, referencia: pd.Series) -> pd.Series:
@@ -583,11 +578,11 @@ if es_bivariado:
 # La lista `sel_{nivel}` es la fuente de verdad: se llena al seleccionar en la gráfica y se edita con
 # los controles de abajo (quitar elementos, quitar un cuadrante, limpiar). Para borrar el recuadro de
 # selección de la gráfica se cambia su clave (`sel_ver_{nivel}`), lo que la vuelve a dibujar limpia.
-k_sel, k_ver, k_firma = f"sel_{nivel}", f"sel_ver_{nivel}", f"sel_firma_{nivel}"
+k_sel, k_ver, k_firma = K(f"sel_{nivel}"), K(f"sel_ver_{nivel}"), K(f"sel_firma_{nivel}")
 st.session_state.setdefault(k_sel, [])
 st.session_state.setdefault(k_ver, 0)
 st.session_state.setdefault(k_firma, ())
-clave_disp = f"dispersion_{nivel}_{st.session_state[k_ver]}"
+clave_disp = K(f"dispersion_{nivel}_{st.session_state[k_ver]}")
 if es_bivariado:     # la dispersión muestra las 2 variables: entra todo lo que tenga ambas
     puntos_disp = info_visible[info_visible["v0"].notna() & info_visible["v1"].notna()]
 else:
@@ -729,7 +724,7 @@ with col_mz:
                    "inactivas o no tienen datos de capacidad o de zona)."
                    + ("" if sd["grupos"] is None else f" {sd['grupos']} {nombre_grupo} no tienen ninguna ruta con datos."))
     st.caption(("Rutas: cuadrante calculado por el modelo. " if umbrales_default else
-                "Rutas: recalculadas con los cortes de Opciones avanzadas. ")
+                "Rutas: recalculadas con otros cortes. ")
                + f"Cortes: Atractividad ≥ {umbral_x:g} · Madurez ≥ {umbral_y:g}"
                + (" (medianas redondeadas). " if umbrales_default else ". ")
                + ("" if nivel == "Ruta" else f"Cada {nivel.lower()} se clasifica por la mediana de sus rutas "
@@ -836,6 +831,33 @@ _JS_VISTA = """
     const capa = gd.querySelector(".hoverlayer");
     if (capa) new MutationObserver(() => acomodarDetalle(gd)).observe(capa, {childList: true});
   }
+  // La vista del mapa principal queda en la dirección (?vista=lat,lon,zoom,ancho,alto) para que la imagen
+  // exportada salga con el mismo encuadre que se ve en pantalla.
+  function anotarVista(m, x) {
+    try {
+      const c = m.getCanvas(), u = new URL(P.location.href);
+      u.searchParams.set("vista", [x.lat.toFixed(5), x.lon.toFixed(5), x.zoom.toFixed(3),
+                                   c.clientWidth, c.clientHeight].join(","));
+      P.history.replaceState(P.history.state, "", u.toString());
+    } catch (e) {}
+  }
+  // Burbujas por grupo: de cerca, círculo blanco con letra; de lejos, el color de la variable
+  const ZOOM_LETRA = __ZOOM_LETRA__;
+  function burbujasPorZoom(gd, m, nombre) {
+    const cerca = m.getZoom() >= ZOOM_LETRA;
+    for (const t of (gd._fullData || [])) {
+      if ((t.subplot || "map") !== nombre || (t.meta !== "burbuja" && t.meta !== "burbuja_letra")) continue;
+      const ver = (t.meta === "burbuja_letra") === cerca ? 1 : 0;
+      const base = "plotly-trace-layer-" + t.uid;
+      if (m.getLayer(base + "-circle")) m.setPaintProperty(base + "-circle", "circle-opacity", ver);
+      if (m.getLayer(base + "-symbol")) {
+        m.setPaintProperty(base + "-symbol", "text-opacity", ver);
+        // la letra se ve siempre, aunque choque con nombres de calles del mapa base
+        m.setLayoutProperty(base + "-symbol", "text-allow-overlap", true);
+        m.setLayoutProperty(base + "-symbol", "text-ignore-placement", true);
+      }
+    }
+  }
   function revisar() {
     for (const gd of P.document.querySelectorAll(".js-plotly-plot")) {
       const fl = gd._fullLayout; if (!fl) continue;
@@ -848,6 +870,8 @@ _JS_VISTA = """
       for (const [nombre, m] of mapas) {
         if (m.__vistaLista) continue;
         m.__vistaLista = true;
+        burbujasPorZoom(gd, m, nombre);
+        m.on("zoom", () => burbujasPorZoom(gd, m, nombre));
         const v = leer(tipo.clave);
         const guardada = v && v.rev === rev && v.vistas &&
           (v.vistas[nombre] || (tipo.sincronizar ? Object.values(v.vistas)[0] : null));
@@ -856,6 +880,7 @@ _JS_VISTA = """
           // originalEvent hace que Plotly registre la vista en su layout (como si la moviera el usuario)
           aplicar(m, guardada, true);
           gd.__sincronizando = false;
+          if (pref === "mapa|") anotarVista(m, guardada);
         }
         if (tipo.sincronizar) {
           m.on("move", e => {
@@ -873,6 +898,7 @@ _JS_VISTA = """
           const x = vistaDe(m);
           if (tipo.sincronizar) { for (const [n2] of mapas) vistas[n2] = x; } else { vistas[nombre] = x; }
           guardar(tipo.clave, {rev: rev, vistas: vistas});
+          if (pref === "mapa|") anotarVista(m, x);
         });
       }
     }
@@ -884,7 +910,7 @@ _JS_VISTA = """
 
 
 def recordar_vista_mapa() -> None:
-    st.iframe(_JS_VISTA, height=1)
+    st.iframe(_JS_VISTA.replace("__ZOOM_LETRA__", str(figura.ZOOM_BURBUJA_LETRA)), height=1)
 
 
 # Diagrama de flujo con zoom (rueda del mouse / botones) y paneo (arrastrar). El SVG lo arma
@@ -974,7 +1000,7 @@ encabezado(
     "El ícono de cámara (arriba a la derecha del mapa) descarga la imagen de lo que estás viendo.")
 st.radio(
     "Barras del detalle: comparar contra", list(REFERENCIAS_PERFIL), format_func=REFERENCIAS_PERFIL.get,
-    horizontal=True, key="referencia_perfil", disabled=not perfil_on,
+    horizontal=True, key=K('referencia_perfil'), disabled=not perfil_on,
     help="Sólo cambia qué tan llenas se ven las barras del detalle al pasar el cursor sobre el mapa. NO cambia los "
          "filtros, el mapa ni los números. Lo que tengo filtrado: la barra compara contra lo filtrado en el panel "
          "izquierdo. Todas las rutas: compara contra todas las rutas (o todos los grupos), sin importar los filtros.")
@@ -988,7 +1014,7 @@ fig = figura.construir_mapa(
     titulo=titulo_mapa, subtitulo=filtros_txt,
     centro=centro, zoom=zoom + ajuste_zoom, opacidad=opacidad,
     grosor_borde=0.4 if nivel == "Ruta" else 1.2,
-    estilo=figura.ESTILOS_MAPA[estilo], etiquetas=etiquetas, burbujas=burbujas,
+    estilo=figura.ESTILOS_MAPA[estilo], etiquetas=etiquetas, burbujas=burbujas, letra_burbuja=nivel[0],
     variables=variables_mapa, modo_variables=modo_variables, paleta=paleta, con_cuadrantes=con_cuadrantes,
     bivariado_cfg=bivariado_cfg, contornos=contornos_mapa, alto=760, uirevision=revision_mapa,
     fondo=rutas_solo_web if nivel == "Ruta" else None,
@@ -1004,28 +1030,36 @@ st.caption("Para guardar una imagen: el ícono de cámara del mapa descarga **ex
 # --------------------------------------------------------------------------- exportación
 with st.expander("Descargar el mapa como imagen para presentación (JPG)", expanded=False):
     st.caption("1) Escribe el título, 2) elige el tamaño, 3) pulsa **Generar imagen**, 4) pulsa **Descargar**. "
-               "La imagen muestra todo lo filtrado, con la vista elegida en el panel izquierdo.")
+               "La imagen sale con el mismo acercamiento y la misma zona que estás viendo en el mapa de arriba.")
     c1, c2, c3 = st.columns([3, 2, 1])
-    titulo_exp = c1.text_input("Título", titulo_mapa)
-    subtitulo_exp = c1.text_input("Subtítulo", f"{filtros_txt} · {date.today():%d/%m/%Y}")
+    titulo_exp = c1.text_input("Título", titulo_mapa, key=K("w1023"))
+    subtitulo_exp = c1.text_input("Subtítulo", f"{filtros_txt} · {date.today():%d/%m/%Y}", key=K("w1024"))
     tamanos = {"Presentación 16:9 (1920×1080)": (1920, 1080), "Presentación 4:3 (1600×1200)": (1600, 1200),
                "Cuadrado (1400×1400)": (1400, 1400), "Vertical (1200×1600)": (1200, 1600)}
-    tam = c2.selectbox("Tamaño", list(tamanos), help="16:9 es el tamaño normal de una lámina de PowerPoint.")
+    tam = c2.selectbox("Tamaño", list(tamanos), help="16:9 es el tamaño normal de una lámina de PowerPoint.", key=K("w1027"))
     escala = c2.select_slider("Resolución", [1.0, 1.5, 2.0, 3.0], value=2.0, format_func=lambda s: f"×{s:g}",
-                              help="Más alto = imagen más nítida pero más pesada y tarda más.")
+                              help="Más alto = imagen más nítida pero más pesada y tarda más.", key=K("w1028"))
     ancho, alto = tamanos[tam]
-    firma = (titulo_exp, subtitulo_exp, tam, escala, estilo, opacidad, vista, ajuste_zoom, nivel,
+    firma = (titulo_exp, subtitulo_exp, tam, escala, estilo, opacidad, st.query_params.get("vista", ""), nivel,
              tuple(info_visible["id"]), tuple(info_visible["P"]), etiquetas_on, burbujas_on, contorno_on, canales,
              dias, tuple(variables_sel), modo_variables, paleta, paleta_biv, en_percentiles, escenario, caso)
 
     if c3.button("Generar imagen", type="primary"):
-        centro_e, zoom_e = encuadre_mapa(ancho, alto - 90)
+        n_m = figura.n_mapas(variables_mapa, modo_variables, con_cuadrantes)
+        vista_pantalla = st.query_params.get("vista", "")
+        try:   # lo que se ve en pantalla (el mapa lo anota al moverse)
+            lat_v, lon_v, z_v, w_v, h_v = (float(x) for x in vista_pantalla.split(","))
+            centro_e = {"lat": lat_v, "lon": lon_v}
+            zoom_e = figura.zoom_para_exportar(z_v, w_v, h_v, ancho, alto, n_m)
+        except ValueError:   # todavía no se ha movido el mapa: la vista con la que abrió
+            centro_e, zoom_e = encuadre_mapa(ancho, alto - 90)
+            zoom_e += ajuste_zoom
         fig_e = figura.construir_mapa(
             geoms_mapa, info_visible, leyenda,
             titulo=titulo_exp, subtitulo=subtitulo_exp,
-            centro=centro_e, zoom=zoom_e + ajuste_zoom, opacidad=opacidad,
+            centro=centro_e, zoom=zoom_e, opacidad=opacidad,
             grosor_borde=0.5 if nivel == "Ruta" else 1.4,
-            estilo=figura.ESTILOS_MAPA[estilo], etiquetas=etiquetas, burbujas=burbujas,
+            estilo=figura.ESTILOS_MAPA[estilo], etiquetas=etiquetas, burbujas=burbujas, letra_burbuja=nivel[0],
             variables=variables_mapa, modo_variables=modo_variables, paleta=paleta, con_cuadrantes=con_cuadrantes,
             bivariado_cfg=bivariado_cfg, contornos=contornos_mapa, alto=alto, ancho=ancho,
             fondo=rutas_solo_web if nivel == "Ruta" else None,
@@ -1048,64 +1082,72 @@ with st.expander("Descargar el mapa como imagen para presentación (JPG)", expan
 # --------------------------------------------------------------------------- tablas
 st.markdown("#### Más detalle", help="Cada pestaña muestra otra forma de ver los mismos datos. Haz clic en el "
             "nombre de una pestaña para abrirla.")
-tab_arbol, tab_nivel, tab_comp, tab_glosario, tab_modelo, tab_sin_geo = st.tabs(
-    ["Árbol de decisión", f"Tabla por {nivel}", "Comparar escenarios", "Glosario: qué significa cada cosa",
-     "Modelo completo", "Rutas sin polígono"])
+mostrar_arbol = st.toggle(
+    "Mostrar la pestaña del árbol de decisión", value=False, key=K('mostrar_arbol'),
+    help="El árbol de decisión (diagrama, tabla y lista de estrategias por ruta) está oculto. Enciende este interruptor "
+         "para que aparezca como la primera pestaña. Las estrategias de cada ruta se ven siempre en el detalle del mapa.")
+nombres_tabs = ([ "Árbol de decisión"] if mostrar_arbol else []) + [
+    f"Tabla por {nivel}", "Comparar escenarios", "Glosario: qué significa cada cosa", "Modelo completo",
+    "Rutas sin polígono"]
+_tabs = st.tabs(nombres_tabs)
+tab_arbol = _tabs[0] if mostrar_arbol else None
+tab_nivel, tab_comp, tab_glosario, tab_modelo, tab_sin_geo = _tabs[-5:]
 
-with tab_arbol:
-    conteo_arbol = {r.clave: int(evaluacion[r.clave].sum()) for r in estrategia.REGLAS}
-    rutas_p = df_f["P"].value_counts().to_dict()
-    encabezado(
-        "Árbol de decisión: qué hacer con cada ruta",
-        "Diagrama de preguntas que decide la estrategia de cada ruta según su cuadrante. Los números son rutas del "
-        "filtro actual.",
-        "Cómo leerlo: empieza arriba en 'Rutas Arca' y sigue las flechas. Cada rombo es una pregunta. Si su respuesta "
-        "(Sí o No) tiene una caja de color, la ruta recibe esa estrategia; después sigue a la siguiente pregunta, así "
-        "que puede recibir varias. Las rutas sin cuadrante (a la derecha) reciben una sola acción. El diagrama está "
-        "en el desplegable 'Ver el diagrama'; usa la rueda del mouse para acercar y arrastra para moverte.")
-    n_est = evaluacion.loc[df_f["P"].isin(estrategia.CUADRANTES), "Nº de estrategias"].value_counts().sort_index()
-    cols_n = st.columns(max(len(n_est), 1))
-    for col_m, (n, rutas) in zip(cols_n, n_est.items()):
-        col_m.metric(f"Rutas con {n} estrategia{'s' if n > 1 else ''}", f"{rutas:,}",
-                     help="Cuántas rutas (con cuadrante) reciben este número de estrategias al mismo tiempo.")
-    exp_diagrama = st.expander("Ver el diagrama del árbol de decisión", expanded=False)
-    ver = exp_diagrama.radio("Ver en el diagrama", ["Todo", "P1", "P2", "P3", "P4", "Sin cuadrante"], horizontal=True,
-                   format_func=lambda x: x if x in ("Todo", "Sin cuadrante") else f"{x} · {C.CATEGORIAS[x]['nombre']}",
-                   help="Muestra el árbol completo o sólo la parte de un cuadrante (más fácil de leer y presentar).")
-    alto_arbol = exp_diagrama.select_slider("Alto del diagrama", [500, 650, 800, 1000, 1300], value=800,
-                                  format_func=lambda h: f"{h} px", help="Hazlo más alto si se ve muy apretado.")
-    with exp_diagrama:
-        diagrama_con_zoom(estrategia.diagrama_svg(conteo_arbol, ver, rutas_p), alto_arbol)
-        st.caption("Rombo = pregunta. Caja de color = estrategia (con cuántas rutas la reciben). Con Sí o con No la "
-                   "ruta sigue a la siguiente pregunta, así que puede recibir varias estrategias.")
+if mostrar_arbol:
+    with tab_arbol:
+        conteo_arbol = {r.clave: int(evaluacion[r.clave].sum()) for r in estrategia.REGLAS}
+        rutas_p = df_f["P"].value_counts().to_dict()
+        encabezado(
+            "Árbol de decisión: qué hacer con cada ruta",
+            "Diagrama de preguntas que decide la estrategia de cada ruta según su cuadrante. Los números son rutas del "
+            "filtro actual.",
+            "Cómo leerlo: empieza arriba en 'Rutas Arca' y sigue las flechas. Cada rombo es una pregunta. Si su respuesta "
+            "(Sí o No) tiene una caja de color, la ruta recibe esa estrategia; después sigue a la siguiente pregunta, así "
+            "que puede recibir varias. Las rutas sin cuadrante (a la derecha) reciben una sola acción. El diagrama está "
+            "en el desplegable 'Ver el diagrama'; usa la rueda del mouse para acercar y arrastra para moverte.")
+        n_est = evaluacion.loc[df_f["P"].isin(estrategia.CUADRANTES), "Nº de estrategias"].value_counts().sort_index()
+        cols_n = st.columns(max(len(n_est), 1))
+        for col_m, (n, rutas) in zip(cols_n, n_est.items()):
+            col_m.metric(f"Rutas con {n} estrategia{'s' if n > 1 else ''}", f"{rutas:,}",
+                         help="Cuántas rutas (con cuadrante) reciben este número de estrategias al mismo tiempo.")
+        exp_diagrama = st.expander("Ver el diagrama del árbol de decisión", expanded=False)
+        ver = exp_diagrama.radio("Ver en el diagrama", ["Todo", "P1", "P2", "P3", "P4", "Sin cuadrante"], horizontal=True,
+                       format_func=lambda x: x if x in ("Todo", "Sin cuadrante") else f"{x} · {C.CATEGORIAS[x]['nombre']}",
+                       help="Muestra el árbol completo o sólo la parte de un cuadrante (más fácil de leer y presentar).", key=K("w1102"))
+        alto_arbol = exp_diagrama.select_slider("Alto del diagrama", [500, 650, 800, 1000, 1300], value=800,
+                                      format_func=lambda h: f"{h} px", help="Hazlo más alto si se ve muy apretado.", key=K("w1105"))
+        with exp_diagrama:
+            diagrama_con_zoom(estrategia.diagrama_svg(conteo_arbol, ver, rutas_p), alto_arbol)
+            st.caption("Rombo = pregunta. Caja de color = estrategia (con cuántas rutas la reciben). Con Sí o con No la "
+                       "ruta sigue a la siguiente pregunta, así que puede recibir varias estrategias.")
 
-    # --- Tabla del árbol: cómo se contesta cada pregunta
-    encabezado(
-        "Tabla del árbol: cómo se contesta cada pregunta",
-        "Cada estrategia del diagrama, con la pregunta que la dispara y los datos con los que se contesta.",
-        "Paso: número de la pregunta en su cuadrante. Respuesta: con qué respuesta se recibe la estrategia. Cómo se "
-        "contesta: qué datos de la ruta se comparan y contra qué (p75 = el valor que deja al 75% de las rutas abajo; "
-        "p25 = deja al 25% abajo; mediana = el de en medio).")
-    tabla_reglas = estrategia.tabla_reglas(cortes_arbol, conteo_arbol)
-    st.dataframe(tabla_reglas, width="stretch", hide_index=True,
-                 column_config={"Cómo se contesta": st.column_config.TextColumn(width="large"),
-                                "Estrategia": st.column_config.TextColumn(width="large")})
-    st.caption("Valores de corte con lo que hay hoy: " + estrategia.resumen_cortes(cortes_arbol)
-               + f" · zonas sin cobertura buscadas a {radio_ws:g} km de la ruta (Opciones avanzadas).")
+        # --- Tabla del árbol: cómo se contesta cada pregunta
+        encabezado(
+            "Tabla del árbol: cómo se contesta cada pregunta",
+            "Cada estrategia del diagrama, con la pregunta que la dispara y los datos con los que se contesta.",
+            "Paso: número de la pregunta en su cuadrante. Respuesta: con qué respuesta se recibe la estrategia. Cómo se "
+            "contesta: qué datos de la ruta se comparan y contra qué (p75 = el valor que deja al 75% de las rutas abajo; "
+            "p25 = deja al 25% abajo; mediana = el de en medio).")
+        tabla_reglas = estrategia.tabla_reglas(cortes_arbol, conteo_arbol)
+        st.dataframe(tabla_reglas, width="stretch", hide_index=True,
+                     column_config={"Cómo se contesta": st.column_config.TextColumn(width="large"),
+                                    "Estrategia": st.column_config.TextColumn(width="large")})
+        st.caption("Valores de corte con lo que hay hoy: " + estrategia.resumen_cortes(cortes_arbol)
+                   + f" · zonas sin cobertura buscadas a {radio_ws:g} km de la ruta.")
 
-    cols_arbol = [C.COL_REGION, C.COL_TERRITORIO, C.COL_CEDI, C.COL_RUTA, "P", "Nº de estrategias", "Estrategias",
-                  "Respuestas del árbol", "Porque"]
-    tabla_arbol = df_f[cols_arbol].rename(columns={"P": "Cuadrante"})
-    with st.expander(f"Ver la lista de rutas y sus estrategias ({len(tabla_arbol)} rutas)"):
-        st.caption("Una fila por ruta. Si tiene varias estrategias, van separadas con “|”, en el mismo orden que su "
-                   "porqué.")
-        st.dataframe(tabla_arbol, width="stretch", hide_index=True)
-    buf_a = io.BytesIO()
-    with pd.ExcelWriter(buf_a, engine="openpyxl") as xw:
-        tabla_arbol.to_excel(xw, sheet_name="Rutas", index=False)
-        tabla_reglas.to_excel(xw, sheet_name="Árbol", index=False)
-    st.download_button("Descargar árbol y estrategias (Excel)", buf_a.getvalue(),
-                       file_name=f"arbol_decision_{escenario}_{nombre_caso(caso)}.xlsx".lower())
+        cols_arbol = [C.COL_REGION, C.COL_TERRITORIO, C.COL_CEDI, C.COL_RUTA, "P", "Nº de estrategias", "Estrategias",
+                      "Respuestas del árbol", "Porque"]
+        tabla_arbol = df_f[cols_arbol].rename(columns={"P": "Cuadrante"})
+        with st.expander(f"Ver la lista de rutas y sus estrategias ({len(tabla_arbol)} rutas)"):
+            st.caption("Una fila por ruta. Si tiene varias estrategias, van separadas con “|”, en el mismo orden que su "
+                       "porqué.")
+            st.dataframe(tabla_arbol, width="stretch", hide_index=True)
+        buf_a = io.BytesIO()
+        with pd.ExcelWriter(buf_a, engine="openpyxl") as xw:
+            tabla_arbol.to_excel(xw, sheet_name="Rutas", index=False)
+            tabla_reglas.to_excel(xw, sheet_name="Árbol", index=False)
+        st.download_button("Descargar árbol y estrategias (Excel)", buf_a.getvalue(),
+                           file_name=f"arbol_decision_{escenario}_{nombre_caso(caso)}.xlsx".lower())
 with tab_nivel:
     encabezado(
         f"Tabla por {nivel}",
@@ -1147,12 +1189,12 @@ with tab_comp:
 
     ca, cb = st.columns(2)
     ca.markdown("**Mapa izquierdo**")
-    esc_a = ca.selectbox("Carga de camión OP · izquierdo", escenarios, index=escenarios.index(escenario))
-    caso_a = ca.selectbox("Caso de potencial · izquierdo", casos, index=casos.index(caso), format_func=etiqueta_caso)
+    esc_a = ca.selectbox("Carga de camión OP · izquierdo", escenarios, index=escenarios.index(escenario), key=K("w1180"))
+    caso_a = ca.selectbox("Caso de potencial · izquierdo", casos, index=casos.index(caso), format_func=etiqueta_caso, key=K("w1181"))
     otros_esc = [e for e in escenarios if e != escenario] or escenarios
     cb.markdown("**Mapa derecho**")
-    esc_b = cb.selectbox("Carga de camión OP · derecho", escenarios, index=escenarios.index(otros_esc[0]))
-    caso_b = cb.selectbox("Caso de potencial · derecho", casos, index=casos.index(caso), format_func=etiqueta_caso)
+    esc_b = cb.selectbox("Carga de camión OP · derecho", escenarios, index=escenarios.index(otros_esc[0]), key=K("w1184"))
+    caso_b = cb.selectbox("Caso de potencial · derecho", casos, index=casos.index(caso), format_func=etiqueta_caso, key=K("w1185"))
     nombre_a = f"Carga OP {esc_a} · Potencial {nombre_caso(caso_a)}"
     nombre_b = f"Carga OP {esc_b} · Potencial {nombre_caso(caso_b)}"
 
@@ -1202,7 +1244,7 @@ with tab_comp:
                 "dos lados.")
     resaltar_on = st.checkbox(
         "Resaltar lo que cambia de cuadrante" + (" (borde negro grueso)" if modo_daltonismo else " (borde rojo)"),
-        value=True, help="Marca con un borde las zonas que están en un cuadrante distinto en cada escenario.")
+        value=True, help="Marca con un borde las zonas que están en un cuadrante distinto en cada escenario.", key=K("w1233"))
     leyenda_comp = {p_: nombre_p(p_) for p_ in C.ORDEN_CATEGORIAS}
     contornos_comp = None
     if nivel == "Ruta" and contorno_on:
@@ -1288,7 +1330,7 @@ with tab_glosario:
         "Qué mide = qué te dice el indicador. Cómo se calcula = de dónde sale el número. Cómo leerlo = si alto es "
         "bueno o malo. Escribe en el buscador para encontrar uno.")
     buscar = st.text_input("Buscar un indicador o concepto", placeholder="Por ejemplo: ticket, hogares, madurez…",
-                           help="Escribe una palabra y la tabla sólo muestra lo que la contiene.")
+                           help="Escribe una palabra y la tabla sólo muestra lo que la contiene.", key=K("w1320"))
     filas_glosario = []
     for v, (col_v, formato_v, grupo_v) in catalogo.items():
         que, como, leer = C.GLOSARIO_VARIABLES.get(v, (

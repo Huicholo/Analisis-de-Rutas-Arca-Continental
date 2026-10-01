@@ -153,7 +153,14 @@ def _capa_variable(fig, geoms, info, var, opacidad, grosor_borde, subplot, visib
     ))
 
 
-def _burbujas(fig, burbujas, subplot, var=None, escala=None, colores=None):
+ZOOM_BURBUJA_LETRA = 8.5   # de aquí hacia adentro las burbujas se ven como círculo blanco con su letra
+
+
+def _burbujas(fig, burbujas, letra, zoom_ini, subplot, var=None, escala=None, colores=None):
+    """Burbujas por grupo. Lejos: color de la variable/cuadrante (tamaño = # rutas). Cerca (zoom ≥
+    ZOOM_BURBUJA_LETRA): círculo blanco con la letra del nivel (C, T, R). El cambio al hacer zoom lo hace el
+    script del mapa en el navegador; aquí sólo se fija cuál se ve al inicio (y en la imagen exportada)."""
+    cerca = zoom_ini >= ZOOM_BURBUJA_LETRA
     tam = 10 + 26 * (burbujas["rutas"] / burbujas["rutas"].max()) ** 0.5
     if colores is not None:
         relleno = dict(color=colores.fillna(C.CATEGORIAS[C.SIN_DATOS]["color"]).tolist())
@@ -167,11 +174,20 @@ def _burbujas(fig, burbujas, subplot, var=None, escala=None, colores=None):
         borde = [C.CATEGORIAS[p]["borde"] for p in burbujas["P"]]
     # Círculo oscuro debajo simula el borde (los marcadores de MapLibre no tienen contorno)
     fig.add_trace(go.Scattermap(lat=burbujas["lat"], lon=burbujas["lon"], mode="markers",
-                                marker=dict(size=tam + 3, color=borde), hoverinfo="skip",
-                                showlegend=False, subplot=subplot))
+                                marker=dict(size=tam + 3, color=borde), hoverinfo="skip", meta="burbuja",
+                                opacity=0 if cerca else 1, showlegend=False, subplot=subplot))
     fig.add_trace(go.Scattermap(lat=burbujas["lat"], lon=burbujas["lon"], mode="markers",
-                                marker=dict(size=tam, opacity=1, **relleno), hovertext=burbujas["hover"],
+                                marker=dict(size=tam, opacity=1, **relleno), hovertext=burbujas["hover"], meta="burbuja",
+                                opacity=0 if cerca else 1,
                                 hovertemplate="%{hovertext}<extra></extra>", showlegend=False, subplot=subplot))
+    # Vista de cerca: círculo blanco con borde negro y la letra del nivel
+    fig.add_trace(go.Scattermap(lat=burbujas["lat"], lon=burbujas["lon"], mode="markers",
+                                marker=dict(size=27, color="#000000"), hoverinfo="skip", meta="burbuja_letra",
+                                opacity=1 if cerca else 0, showlegend=False, subplot=subplot))
+    fig.add_trace(go.Scattermap(lat=burbujas["lat"], lon=burbujas["lon"], mode="markers+text",
+                                marker=dict(size=23, color="#FFFFFF"), text=[letra] * len(burbujas),
+                                textfont=dict(size=15, color="#000000", weight="bold"), hoverinfo="skip", meta="burbuja_letra",
+                                opacity=1 if cerca else 0, showlegend=False, subplot=subplot))
 
 
 def _capa_bivariada(fig, geoms, info, opacidad, grosor_borde):
@@ -362,6 +378,7 @@ def construir_mapa(
     contornos: dict | None = None,
     con_cuadrantes: bool = True,
     fondo: set | None = None,
+    letra_burbuja: str = "C",
     alto: int = 720,
     ancho: int | None = None,
     uirevision: str | None = None,
@@ -381,6 +398,7 @@ def construir_mapa(
     extra_p = 1 if (lado_a_lado and con_cuadrantes) else 0   # 1er mapa = cuadrantes
     n_mapas = len(variables) + extra_p if lado_a_lado else 1
     dominios = _DOMINIOS[n_mapas]
+    zoom_ini = zoom + _AJUSTE_ZOOM[n_mapas]
     if fondo:   # rutas de zona muy grande: primero (debajo) y fuera de las demás capas
         de_fondo = info["id"].isin(fondo)
         for k in range(n_mapas):
@@ -391,7 +409,7 @@ def construir_mapa(
         _capa_base(fig, geoms, info, opacidad, grosor_borde, "map", mostrar_leyenda=False)
         _capa_bivariada(fig, geoms, info, opacidad, grosor_borde)
         if burbujas is not None and not burbujas.empty and "biv_color" in burbujas:
-            _burbujas(fig, burbujas, "map", colores=burbujas["biv_color"])
+            _burbujas(fig, burbujas, letra_burbuja, zoom_ini, "map", colores=burbujas["biv_color"])
         if etiquetas is not None and not etiquetas.empty:
             _etiquetas(fig, etiquetas, "map")
         if bivariado_cfg is not None:
@@ -399,7 +417,7 @@ def construir_mapa(
     elif not variables:
         _capa_cuadrantes(fig, geoms, info, leyenda, opacidad, grosor_borde)
         if burbujas is not None and not burbujas.empty:
-            _burbujas(fig, burbujas, "map")
+            _burbujas(fig, burbujas, letra_burbuja, zoom_ini, "map")
         if etiquetas is not None and not etiquetas.empty:
             _etiquetas(fig, etiquetas, "map")
     elif not lado_a_lado:
@@ -410,7 +428,7 @@ def construir_mapa(
                            visible=True if k == 0 else "legendonly",
                            colorbar=dict(x=0.01, y=0.02 + 0.12 * k, len=0.3), escala=escala_variable(k, paleta))
         if burbujas is not None and not burbujas.empty:
-            _burbujas(fig, burbujas, "map", variables[0], escala=escala_variable(0, paleta))
+            _burbujas(fig, burbujas, letra_burbuja, zoom_ini, "map", variables[0], escala=escala_variable(0, paleta))
         if etiquetas is not None and not etiquetas.empty:
             _etiquetas(fig, etiquetas, "map")
     else:
@@ -425,7 +443,7 @@ def construir_mapa(
                            colorbar=dict(x=x0 + 0.01, y=y0 + 0.02, len=(x1 - x0) * 0.6),
                            escala=escala_variable(k0, paleta), mostrar_leyenda=False)
             if burbujas is not None and not burbujas.empty:
-                _burbujas(fig, burbujas, sp, var, escala=escala_variable(k0, paleta))
+                _burbujas(fig, burbujas, letra_burbuja, zoom_ini, sp, var, escala=escala_variable(k0, paleta))
             if etiquetas is not None and not etiquetas.empty:
                 _etiquetas(fig, etiquetas, sp)
             fig.add_annotation(x=(x0 + x1) / 2, y=y1, xref="paper", yref="paper", yanchor="top",
@@ -468,6 +486,22 @@ def construir_mapa(
         **mapas,
     )
     return fig
+
+
+def n_mapas(variables: list, modo_variables: str, con_cuadrantes: bool) -> int:
+    """Cuántos mapas lleva la figura (misma regla que construir_mapa)."""
+    lado = modo_variables == MODO_LADO and (len(variables) >= 2 or (len(variables) == 1 and con_cuadrantes))
+    return len(variables) + (1 if con_cuadrantes else 0) if lado else 1
+
+
+def zoom_para_exportar(zoom_pantalla: float, ancho_pantalla: float, alto_pantalla: float,
+                       ancho: int, alto: int, mapas: int) -> float:
+    """Zoom que hay que pasar a construir_mapa para que la imagen exportada muestre la misma zona que el mapa en
+    pantalla (cada mapa de la imagen es más grande que en pantalla, así que se acerca en proporción)."""
+    x0, x1, y0, y1 = _DOMINIOS[mapas][0]
+    w_img, h_img = ancho * (x1 - x0), (alto - 70) * (y1 - y0)
+    factor = min(w_img / max(ancho_pantalla, 1), h_img / max(alto_pantalla, 1))
+    return zoom_pantalla + math.log2(max(factor, 1e-3)) - _AJUSTE_ZOOM[mapas]
 
 
 def anillos(geom) -> list:

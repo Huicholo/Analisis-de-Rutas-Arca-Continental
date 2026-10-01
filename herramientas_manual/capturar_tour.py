@@ -123,7 +123,6 @@ async def main():
     # ---------------------------------------------------------------- 2. panel izquierdo (todo abierto)
     await nav.js("__click('[data-testid=\"stSidebar\"] summary', 'Accesibilidad')")
     await nav.js("__click('[data-testid=\"stSidebar\"] summary', 'Libro de análisis')")
-    await nav.js("__click('[data-testid=\"stSidebar\"] summary', 'Opciones avanzadas')")
     await t.esperar(3)
     panel = """(() => { const s = document.querySelector('[data-testid="stSidebarUserContent"]');
       const b = [...s.querySelectorAll('button')].find(x => x.innerText.trim() === 'Restablecer todo').getBoundingClientRect();
@@ -143,12 +142,9 @@ async def main():
         "contorno": W("Contorno oscuro"), "perfil": W("Mini gráfica"), "burbujas": W("Burbujas por grupo"),
         "vista": W("Vista del mapa"), "ajuste_zoom": W("Ajuste de zoom"),
         "ir_vista": E("[data-testid='stSidebar'] button", "Ir a esta vista", True),
-        "avanzadas": E("[data-testid='stSidebar'] summary", "Opciones avanzadas"),
-        "canal": W("Canal de polígonos"), "radio_ws": W("Distancia máxima"), "umbral_x": W("Umbral Atractividad"), "umbral_y": W("Umbral Madurez"),
         "restablecer": E("[data-testid='stSidebar'] button", "Restablecer todo", True),
     })
     await nav.js("__click('[data-testid=\"stSidebar\"] summary', 'Libro de análisis')")
-    await nav.js("__click('[data-testid=\"stSidebar\"] summary', 'Opciones avanzadas')")
 
     # ---------------------------------------------------------------- 3. matriz y gráfica
     await t.escena("matriz", "La matriz y su gráfica", entre(H4("Matriz de cuadrantes"), H4("Mapa")), {
@@ -200,9 +196,16 @@ async def main():
       const b = panel.getBoundingClientRect();
       return {{x: m.x, y: a.y - 12, w: m.width, h: Math.min(b.bottom - a.y + 30, __LIM__)}};
     }})()"""
+    # la pestaña del árbol está oculta: se enciende su interruptor y se abre el diagrama
+    await nav.js("[...document.querySelectorAll('label')].find(l => l.innerText.includes('Mostrar la pestaña del árbol'))"
+                 ".querySelector('input').click()")
+    await t.esperar(10)
+    await nav.js("__click('[role=\"tab\"]', 'Árbol de decisión')")
+    await t.esperar(4)
     await nav.js("__click('[data-testid=\"stExpander\"] summary', 'Ver el diagrama del árbol')")
     await t.esperar(4)
     await t.escena("arbol", "Árbol de decisión", recorte_tab.replace("__LIM__", "1450"), {
+        "mostrar_arbol": W("Mostrar la pestaña del árbol"),
         "pestanas": "document.querySelector('[role=\"tablist\"]')",
         "abrir_diagrama": E("[data-testid='stExpander'] summary", "Ver el diagrama del árbol"),
         "conteo_estrategias": "document.querySelector('[role=\"tabpanel\"] [data-testid=\"stHorizontalBlock\"]')",
