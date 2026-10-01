@@ -356,7 +356,7 @@ def arbol_completo_html(n: int) -> str:
     import pandas as pd
     from mapa import datos, estrategia as E, modelo
     ins = modelo.leer_libro(C.EXCEL_ANALISIS)
-    esc, caso = C.ESCENARIO_DEFAULT, next(c for c in ins.casos_atractividad if ins.caso_disponible(c))
+    esc, caso = C.ESCENARIO_DEFAULT, next(c for c in C.casos_vigentes(ins.casos_atractividad) if ins.caso_disponible(c))
     df, res = modelo.calcular(ins, esc, caso)
     b = datos.aplicar_clasificacion(datos.preparar_resultados(df), res["corte_atractividad"], res["corte_madurez"],
                                     usar_p_excel=True)

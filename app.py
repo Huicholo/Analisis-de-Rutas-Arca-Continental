@@ -165,7 +165,7 @@ if subido is not None:
 # --------------------------------------------------------------------------- casos del modelo
 
 escenarios = list(ins.escenarios)
-casos = list(ins.casos_atractividad)
+casos = C.casos_vigentes(ins.casos_atractividad)
 caso_con_datos = {c: ins.caso_disponible(c) for c in casos}
 col_esc, col_caso = st.columns(2)
 def nombre_caso(c: str) -> str:

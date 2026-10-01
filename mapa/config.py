@@ -62,17 +62,21 @@ ESCENARIO_DEFAULT = "Medio"  # escenario de carga de camión OP con el que abre 
 # 2026-10-01 · el libro trae ahora SEIS bloques: los 3 originales (haversine) y los 3
 # nuevos con ruteo OSRM real. Los VIGENTES son los OSRM, así que se quedan con el nombre
 # de negocio a secas y los anteriores se marcan, para que nadie los confunda en el
-# selector. Los `Caso 85`/`Caso 70` antiguos están vacíos en el libro nuevo y la propia
-# app les añade "(sin datos)".
+# selector.
+# 2026-10-01 · la herramienta sólo muestra los casos vigentes (OSRM); los anteriores siguen en el libro
+# pero no se ofrecen. Si un libro no trae ningún caso vigente, se muestran los que traiga.
 _SUF_OSRM = " (OSRM, atención 5 min) · NUEVO 2026-09-25"
 NOMBRES_POTENCIAL = {
     "Caso 90" + _SUF_OSRM: "Conservador",
     "Caso 85" + _SUF_OSRM: "Medio",
     "Caso 70" + _SUF_OSRM: "Ambicioso",
-    "Caso 90": "Conservador (anterior)",
-    "Caso 85": "Medio (anterior)",
-    "Caso 70": "Ambicioso (anterior)",
 }
+
+
+def casos_vigentes(casos) -> list[str]:
+    """Casos de potencial que ofrece la herramienta, en el orden Conservador · Medio · Ambicioso."""
+    vigentes = [c for c in NOMBRES_POTENCIAL if c in list(casos)]
+    return vigentes or list(casos)
 # Colores de la mini gráfica del detalle (paleta de temas del proyecto)
 COLOR_BARRA = {"Madurez": "#68C9CD", "Atractividad": "#E5803D", "vacío": "#D5D5D5"}
 
