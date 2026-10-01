@@ -427,7 +427,8 @@ def arbol_completo_html(n: int) -> str:
     <li>Si a una ruta le falta un dato para contestar una pregunta, esa pregunta se salta.</li>
   </ul>
   <h3>El árbol completo</h3>
-  <p class="nota">Desliza hacia los lados para ver todo el diagrama.</p>
+  <p class="nota">Usa la rueda del mouse (o los botones + y −) para acercar y alejar, y arrastra para moverte.
+  <b>Ver completo</b> regresa a ver todo el árbol.</p>
   <div class="svg-grande">{completo}</div>
   <h3>Valores de corte (escenario base)</h3>
   <p class="nota">{html.escape(E.resumen_cortes(ct))}. Zonas sin cobertura buscadas a {E.RADIO_SIN_COBERTURA_KM:g} km de la
@@ -544,12 +545,18 @@ table{border-collapse:collapse;width:100%;font-size:.95rem}
 th{background:var(--negro);color:#fff;text-align:left;padding:10px;position:sticky;top:0}
 td{padding:9px 10px;border-bottom:1px solid #E5E5E5;vertical-align:top}
 tr:nth-child(even) td{background:#FAFAFA}
-.svg-grande{overflow:auto;border:1px solid #DDD;border-radius:10px;background:#fff;max-height:80vh}
-.svg-grande svg{display:block}
+.svg-grande,.svg-caja{position:relative;border:1px solid #DDD;border-radius:10px;background:#fff;overflow:hidden;
+  cursor:grab;touch-action:none}
+.svg-grande{height:72vh}.svg-caja{height:62vh}
+.svg-grande svg,.svg-caja svg{width:100%;height:100%;display:block}
+.svg-grande.arrastrando,.svg-caja.arrastrando{cursor:grabbing}
+.zoom-barra{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:5}
+.zoom-barra button{background:#fff;border:2px solid var(--rojo);color:var(--rojo);border-radius:8px;min-width:36px;
+  height:34px;font:800 16px Raleway,Arial;cursor:pointer;padding:0 10px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.zoom-barra button:hover{background:var(--rojo);color:#fff}
 .cuad-arbol{border-top:3px solid var(--gris-cl);padding-top:10px;margin-top:22px}
 .arbol-dos{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:18px;align-items:start}
-.svg-caja{border:1px solid #DDD;border-radius:10px;overflow:auto;max-height:80vh;background:#fff}
-.svg-caja svg{width:100%;height:auto;display:block}
+
 .cnt{display:inline-block;margin-top:3px;background:var(--rojo-suave);color:var(--rojo);border-radius:10px;padding:1px 8px;
   font-weight:700;font-size:.85rem}
 .nada{color:var(--suave);font-style:italic}
@@ -612,6 +619,38 @@ document.addEventListener('keydown', e => {
   secciones[sig].scrollIntoView({behavior: 'smooth'});
 });
 document.getElementById('bt-grande').onclick = () => document.body.classList.toggle('grande');
+// Diagramas del árbol: zoom con la rueda / botones y arrastrar para moverse (se mueve el viewBox del SVG)
+document.querySelectorAll('.svg-grande, .svg-caja').forEach(caja => {
+  const svg = caja.querySelector('svg'); if (!svg) return;
+  const v0 = svg.viewBox.baseVal; const base = {x: v0.x, y: v0.y, w: v0.width, h: v0.height};
+  svg.removeAttribute('width'); svg.removeAttribute('height');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  let vb = {...base};
+  const poner = () => svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  const zoom = (f, fx, fy) => {
+    const w = vb.w / f, h = vb.h / f;
+    if (w > base.w * 3 || w < base.w / 30) return;
+    vb = {x: vb.x + (vb.w - w) * fx, y: vb.y + (vb.h - h) * fy, w, h}; poner();
+  };
+  const barra = document.createElement('div'); barra.className = 'zoom-barra';
+  barra.innerHTML = '<button title="Acercar">+</button><button title="Alejar">−</button><button title="Ver todo el diagrama">Ver completo</button>';
+  const [mas, menos, todo] = barra.querySelectorAll('button');
+  mas.onclick = () => zoom(1.3, .5, .5); menos.onclick = () => zoom(1 / 1.3, .5, .5);
+  todo.onclick = () => { vb = {...base}; poner(); };
+  caja.appendChild(barra);
+  caja.addEventListener('wheel', e => {
+    e.preventDefault(); const r = caja.getBoundingClientRect();
+    zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+  }, {passive: false});
+  let arr = null;
+  caja.addEventListener('pointerdown', e => { if (e.target.closest('.zoom-barra')) return;
+    arr = {x: e.clientX, y: e.clientY, vb: {...vb}}; caja.classList.add('arrastrando'); caja.setPointerCapture(e.pointerId); });
+  caja.addEventListener('pointermove', e => { if (!arr) return; const r = caja.getBoundingClientRect();
+    const esc = Math.max(vb.w / r.width, vb.h / r.height);
+    vb = {...arr.vb, x: arr.vb.x - (e.clientX - arr.x) * esc, y: arr.vb.y - (e.clientY - arr.y) * esc}; poner(); });
+  const soltar = () => { arr = null; caja.classList.remove('arrastrando'); };
+  caja.addEventListener('pointerup', soltar); caja.addEventListener('pointercancel', soltar);
+});
 </script>
 </body></html>"""
 
