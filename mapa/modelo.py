@@ -94,8 +94,44 @@ COLS_RUTAS = {
     "Capacidad adicional (clientes)": "cap_adicional", "% Venta OP (ingreso)": "pct_venta_op",
     "% Venta Web.": "pct_venta_web",
 }
-# Dentro de cada bloque "Atractividad Caso NN": posición (0-based) de cada insumo capturado
+# Dentro de cada bloque "Atractividad Caso NN": posición (0-based) de cada insumo capturado,
+# RELATIVA a la columna COL_ANCLA_CASO del propio bloque (ver nota 2026-10-01 abajo).
 OFFSETS_CASO = {"hog_abc": 0, "hog_pot": 2, "pot_ingreso": 5, "pot_cu": 7}
+
+# --------------------------------------------------------------------------- 2026-10-01
+# Los bloques "Atractividad Caso NN" del libro original miden 8 columnas y arrancan en
+# "Hogares totales ABC+". Los bloques nuevos "Caso NN (OSRM, atención 5 min)" miden 14:
+# se les agregaron 6 columnas AL PRINCIPIO (Clientes actuales, Clientes potencial, Delta
+# clientes, Horas actuales, Jornada completa, Delta Horas) y las 8 de siempre quedaron
+# corridas a las posiciones 6-13.
+#
+# Con los offsets contados desde el inicio del bloque, en un bloque de 14 se leía
+# Clientes actuales / Delta clientes / Delta Horas / % Hogares ABC+ en lugar de los
+# hogares y el potencial: no truena, da números plausibles y equivocados, y afecta el
+# Eje X (Atractividad). Medido: ~135 de 789 rutas cambiaban de cuadrante.
+#
+# Arreglo: los offsets se aplican RELATIVOS a "Hogares totales ABC+", localizada por
+# nombre dentro de cada bloque. El ancla queda en 0 para los bloques de 8 y en 6 para
+# los de 14, así que funciona con cualquier ancho sin volver a tocar nada.
+COL_ANCLA_CASO = "Hogares totales ABC+"      # primera de las 8 columnas de siempre
+
+# Encabezados de saturación que los bloques nuevos traen POR CASO. `COLS_RUTAS` los busca
+# en toda la fila 5 y gana la primera aparición, así que `clientes_act`, `clientes_pot`,
+# `horas_act` y `jornada` salían siempre del bloque «Saturación» global (cols 89-93), que
+# conserva un conteo anterior a los casos OSRM:
+#     Saturación : 205,872 actuales + 96,096 nuevos
+#     Caso 90    : 204,584 actuales + 87,423 nuevos
+#     Caso 85    : 204,584 actuales + 85,194 nuevos
+#     Caso 70    : 204,584 actuales + 78,508 nuevos
+# O sea: el selector de caso NO movía esos cuatro insumos. Eso alimenta Delta clientes ->
+# Señales sin holgura -> Índice de Saturación, que es el Eje Y y define el cuadrante
+# (60 de 789 rutas cambiaban de "saturada" a "no saturada" con holgura_max = 0).
+# Si el bloque del caso los trae, se leen DE AHÍ; si no (bloques de 8), se cae al
+# comportamiento original y los casos antiguos dan exactamente lo mismo que antes.
+COLS_CASO_SATURACION = {
+    "Clientes actuales (Total)": "clientes_act", "Clientes potencial": "clientes_pot",
+    "Horas actuales": "horas_act", "Jornada completa": "jornada",
+}
 
 # Columnas de estándares en 'Hoja de apoyo v2' (encabezado del bloque) → columna del modelo
 COLS_ESTANDAR = {
@@ -177,7 +213,11 @@ class Insumos:
     segmentos: "Segmentos | None" = None
 
     def caso_disponible(self, caso: str) -> bool:
+        # Sólo cuentan las 4 columnas de atractividad: un bloque puede traer además
+        # clientes/horas (COLS_CASO_SATURACION), y un caso con atractividad vacía pero
+        # clientes llenos se habría reportado como disponible.
         d = self.casos_atractividad[caso]
+        d = d[[c for c in OFFSETS_CASO if c in d.columns]]
         return bool(d.apply(pd.to_numeric, errors="coerce").notna().any().any())
 
 
@@ -198,13 +238,35 @@ def _leer_rutas(ws) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     datos = [f for f in datos if f and f[idx["region"]] not in (None, "")]
     rutas = pd.DataFrame({k: [f[i] for f in datos] for k, i in idx.items()})
 
+    # Límites de cada bloque, para poder buscar una columna DENTRO de él por nombre
+    inicios = [i for i, b in enumerate(bloques)
+               if re.match(r"\s*Atractividad\s+Caso\s+(.+)", str(b or ""), flags=re.I)]
+    fines = [(inicios[k + 1] if k + 1 < len(inicios) else len(enc)) for k in range(len(inicios))]
+
+    def _col_en_bloque(ini, fin, nombre):
+        """Índice absoluto de la columna `nombre` dentro del bloque, o None."""
+        for j in range(ini, min(fin, len(enc))):
+            if isinstance(enc[j], str) and enc[j].strip() == nombre:
+                return j
+        return None
+
     casos = {}
-    for i, b in enumerate(bloques):
-        m = re.match(r"\s*Atractividad\s+Caso\s+(.+)", str(b or ""), flags=re.I)
-        if m:
-            nombre = f"Caso {m.group(1).strip()}"
-            casos[nombre] = pd.DataFrame({k: [f[i + off] if i + off < len(f) else None for f in datos]
-                                          for k, off in OFFSETS_CASO.items()})
+    for k, i in enumerate(inicios):
+        fin = fines[k]
+        m = re.match(r"\s*Atractividad\s+Caso\s+(.+)", str(bloques[i]), flags=re.I)
+        nombre = "Caso " + m.group(1).strip()
+        # offsets relativos al ancla (0 en los bloques de 8, 6 en los de 14)
+        j_ancla = _col_en_bloque(i, fin, COL_ANCLA_CASO)
+        base = j_ancla if j_ancla is not None else i
+        d = {k2: [f[base + off] if base + off < len(f) else None for f in datos]
+             for k2, off in OFFSETS_CASO.items()}
+        # si el bloque trae sus propios clientes/horas, se guardan para que `calcular`
+        # los prefiera sobre el bloque «Saturación» global
+        for h, destino in COLS_CASO_SATURACION.items():
+            j = _col_en_bloque(i, fin, h)
+            if j is not None:
+                d[destino] = [f[j] if j < len(f) else None for f in datos]
+        casos[nombre] = pd.DataFrame(d)
     if not casos:
         raise ValueError(f"En '{HOJA_RUTAS}' no hay bloques 'Atractividad Caso …' en la fila {FILA_BLOQUES_RUTAS}")
     return rutas, casos
@@ -474,12 +536,23 @@ def calcular(ins: Insumos, escenario: str, caso: str) -> tuple[pd.DataFrame, dic
         for ie, cob in zip(df["Índice de Ejecución (0-100)"], df["Cobertura de datos"])]
 
     # 8. Saturación (AT:BE). Los deltas de la base son resta simple: celda vacía = 0
-    df["Clientes actuales"] = r["clientes_act"].map(_num)
-    df["Clientes potencial"] = r["clientes_pot"].map(_num)
-    df["Delta clientes"] = [_n(a) - _n(b) for a, b in zip(r["clientes_pot"], r["clientes_act"])]
-    df["Horas actuales"] = r["horas_act"].map(_num)
-    df["Jornada completa"] = r["jornada"].map(_num)
-    df["Delta horas"] = [_n(a) - _n(b) for a, b in zip(r["jornada"], r["horas_act"])]
+    # 2026-10-01: estos cuatro insumos se toman del BLOQUE DEL CASO cuando el bloque los
+    # trae (ver COLS_CASO_SATURACION); si no, del bloque «Saturación» global, como antes.
+    _c_sat = ins.casos_atractividad[caso]
+
+    def _sat(col):
+        if col in _c_sat.columns:
+            return pd.Series(_c_sat[col].to_numpy(), index=r.index)
+        return r[col]
+
+    _cli_act, _cli_pot = _sat("clientes_act"), _sat("clientes_pot")
+    _hrs_act, _jornada = _sat("horas_act"), _sat("jornada")
+    df["Clientes actuales"] = _cli_act.map(_num)
+    df["Clientes potencial"] = _cli_pot.map(_num)
+    df["Delta clientes"] = [_n(a) - _n(b) for a, b in zip(_cli_pot, _cli_act)]
+    df["Horas actuales"] = _hrs_act.map(_num)
+    df["Jornada completa"] = _jornada.map(_num)
+    df["Delta horas"] = [_n(a) - _n(b) for a, b in zip(_jornada, _hrs_act)]
     df["Capacidad instalada"] = r["cap_inst"].map(_num)
     df["Capacidad utilizada"] = r["cap_util"].map(_num)
     df["Delta capacidad"] = [_n(a) - _n(b) for a, b in zip(r["cap_inst"], r["cap_util"])]
