@@ -6,8 +6,32 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "Data"
 # Libro de análisis: la app lee de aquí datos y parámetros y calcula todo en mapa/modelo.py
-EXCEL_ANALISIS = DATA_DIR / "Analisis de madurez CEDIS y Rutas Arca.xlsx"
-GEOJSON_RUTAS = DATA_DIR / "geo_poligonos_rutas_arca.geojson"
+#
+# 2026-10-01 · se apunta a las versiones corregidas, para que esta app y la herramienta
+# HTML del Canal Hogar digan EXACTAMENTE lo mismo. Las anteriores se dejan en Data/ para
+# poder comparar; para volver a ellas basta cambiar estas dos líneas.
+#
+# El libro `realHOGAR_j510` trae, respecto al anterior (25-sep):
+#   - los bloques `Atractividad Caso 70/85/90 (OSRM)` regenerados con la corrida de ruteo
+#     real sobre la base de clientes HOGAR (218,618 clientes actuales, antes 207,612)
+#   - la jornada del cálculo de holgura corregida a 510 min (antes 540, que no correspondía
+#     a nada: el ruteo mide la carga contra 510 = 600 − 90 de tiempo administrativo)
+#   Escenarios resultantes: 70% 75,430 · 85% 81,367 · 90% 83,346
+#     (antes 78,635 / 85,258 / 87,466)
+#   OJO: es un libro de VALORES, no de fórmulas. El 62.8% de las celdas del original eran
+#   fórmulas y openpyxl pierde su valor cacheado al guardar; como esta app lee con
+#   `data_only=True`, se guardó el snapshot de valores. No recalcula si se abre en Excel.
+#
+# El geojson `realHOGAR` trae:
+#   - las 13 correcciones de número de ruta (Lincoln 701318→705318, Zapopan 816370→816369,
+#     Aguascalientes 901408→901402, Monclova 203300→206300, Ocotlán 8354001→835401,
+#     Santa María 80934→809340, Guadiana 9321410→931410)
+#   - `cedis` homologado al dueño de la ruta según el Excel oficial, con lo que ningún
+#     número de ruta queda repartido entre 2+ CeDis (antes 20 números / 110 polígonos)
+#   - `cedis_venta` con la atribución por mayoría de venta, para no perderla
+#   - la geometría completa (144,693 vértices; el anterior venía simplificado a 78,458)
+EXCEL_ANALISIS = DATA_DIR / "Analisis de madurez CEDIS y Rutas Arca - realHOGAR_j510.xlsx"
+GEOJSON_RUTAS = DATA_DIR / "geo_poligonos_rutas_arca_realHOGAR.geojson"
 
 # Columnas del Excel
 COL_REGION = "Región"
@@ -34,7 +58,21 @@ NIVELES = {
 UMBRAL_X_DEFAULT = 50.0  # respaldo si el caso de atractividad no tiene datos
 ESCENARIO_DEFAULT = "Medio"  # escenario de carga de camión OP con el que abre la app
 # Nombre con el que se muestran los casos de potencial (bloques "Atractividad Caso NN" del libro)
-NOMBRES_POTENCIAL = {"Caso 90": "Conservador", "Caso 85": "Medio", "Caso 70": "Ambicioso"}
+#
+# 2026-10-01 · el libro trae ahora SEIS bloques: los 3 originales (haversine) y los 3
+# nuevos con ruteo OSRM real. Los VIGENTES son los OSRM, así que se quedan con el nombre
+# de negocio a secas y los anteriores se marcan, para que nadie los confunda en el
+# selector. Los `Caso 85`/`Caso 70` antiguos están vacíos en el libro nuevo y la propia
+# app les añade "(sin datos)".
+_SUF_OSRM = " (OSRM, atención 5 min) · NUEVO 2026-09-25"
+NOMBRES_POTENCIAL = {
+    "Caso 90" + _SUF_OSRM: "Conservador",
+    "Caso 85" + _SUF_OSRM: "Medio",
+    "Caso 70" + _SUF_OSRM: "Ambicioso",
+    "Caso 90": "Conservador (anterior)",
+    "Caso 85": "Medio (anterior)",
+    "Caso 70": "Ambicioso (anterior)",
+}
 # Colores de la mini gráfica del detalle (paleta de temas del proyecto)
 COLOR_BARRA = {"Madurez": "#68C9CD", "Atractividad": "#E5803D", "vacío": "#D5D5D5"}
 
