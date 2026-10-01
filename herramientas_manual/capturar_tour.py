@@ -196,22 +196,6 @@ async def main():
       const b = panel.getBoundingClientRect();
       return {{x: m.x, y: a.y - 12, w: m.width, h: Math.min(b.bottom - a.y + 30, __LIM__)}};
     }})()"""
-    # la pestaña del árbol está oculta: se enciende su interruptor y se abre el diagrama
-    await nav.js("[...document.querySelectorAll('label')].find(l => l.innerText.includes('Mostrar la pestaña del árbol'))"
-                 ".querySelector('input').click()")
-    await t.esperar(10)
-    await nav.js("__click('[role=\"tab\"]', 'Árbol de decisión')")
-    await t.esperar(4)
-    await nav.js("__click('[data-testid=\"stExpander\"] summary', 'Ver el diagrama del árbol')")
-    await t.esperar(4)
-    await t.escena("arbol", "Árbol de decisión", recorte_tab.replace("__LIM__", "1450"), {
-        "mostrar_arbol": W("Mostrar la pestaña del árbol"),
-        "pestanas": "document.querySelector('[role=\"tablist\"]')",
-        "abrir_diagrama": E("[data-testid='stExpander'] summary", "Ver el diagrama del árbol"),
-        "conteo_estrategias": "document.querySelector('[role=\"tabpanel\"] [data-testid=\"stHorizontalBlock\"]')",
-        "ver_diagrama": W("Ver en el diagrama"), "alto_diagrama": W("Alto del diagrama"),
-        "diagrama": "[...document.querySelectorAll('iframe')].find(f => f.height > 300 || f.offsetHeight > 300)",
-    })
 
     # ---------------------------------------------------------------- 7. comparar
     await nav.js("__click('[role=\"tab\"]', 'Comparar escenarios')")
@@ -247,6 +231,7 @@ async def main():
     await nav.js("__click('[role=\"tab\"]', 'Tabla por')")
     await t.esperar(5)
     await t.escena("tabla", "Tabla por nivel", recorte_tab.replace("__LIM__", "900"), {
+        "pestanas": "document.querySelector('[role=\"tablist\"]')",
         "tabla_nivel": "[...document.querySelectorAll('[role=\"tabpanel\"]')].find(p => !p.hidden && p.offsetHeight).querySelector('[data-testid=\"stDataFrame\"]')",
         "descargar_tabla": E("button", "Descargar esta tabla"),
     })

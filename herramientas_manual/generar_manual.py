@@ -203,8 +203,6 @@ PASOS = [
     ("panel_variables", "Colorear con indicadores", "Si en el paso 3 eliges “Variables continuas”, aparecen estas opciones."),
     ("bivariado", "Ver 2 indicadores a la vez", "Con 2 indicadores en modo bivariado, el mapa y la gráfica usan una paleta de 9 colores."),
     ("exportar", "Descargar el mapa como imagen", "Para poner el mapa en una presentación, con título y buena calidad."),
-    ("arbol", "Árbol de decisión", "Qué hacer con cada ruta. En la herramienta esta pestaña está oculta: se muestra "
-     "con el interruptor de arriba de las pestañas. El paso “Árbol de decisión completo” lo explica todo."),
     ("tabla", "Tabla por nivel", "Todos los datos en una tabla que puedes ordenar y descargar."),
     ("comparar", "Comparar escenarios", "Dos mapas lado a lado para ver qué rutas cambian de cuadrante entre dos escenarios."),
     ("glosario", "Glosario", "Qué significa cada indicador y cada palabra de la página."),
@@ -246,8 +244,6 @@ CONTROLES = [
     ("Panel · Paso 4", "Vista del mapa", "Vista general · Centro Arca · Ajustar a los filtros", "Vista general", "A dónde lleva el botón Ir a esta vista."),
     ("Panel · Paso 4", "Ajuste de zoom", "−6 a +4", "0", "Acerca o aleja la vista elegida."),
     ("Panel · Paso 4", "Ir a esta vista", "Botón", "—", "Mueve el mapa a la vista elegida."),
-    ("Arriba de las pestañas", "Mostrar la pestaña del árbol de decisión", "Encendido / apagado", "Apagado",
-     "Muestra u oculta la pestaña del árbol de decisión."),
     ("Panel · al final", "Restablecer todo", "Botón", "—", "Regresa todo a como estaba al abrir."),
 ]
 
@@ -260,8 +256,6 @@ FAQ = [
     ("El mapa se movió a otro lugar y no sé regresar",
      "En el panel izquierdo elige <b>Vista general</b> y pulsa <b>Ir a esta vista</b>."),
     ("Moví algo y ya no sé qué cambié", "Pulsa <b>Restablecer todo</b> al final del panel izquierdo."),
-    ("No veo la pestaña del árbol de decisión",
-     "Está oculta. Arriba de las pestañas enciende <b>Mostrar la pestaña del árbol de decisión</b>."),
     ("La imagen descargada no muestra la zona que quería",
      "Mueve y acerca el mapa de arriba a la zona que quieres y vuelve a pulsar <b>Generar imagen</b>: sale con la "
      "misma zona y el mismo acercamiento."),
@@ -273,9 +267,10 @@ FAQ = [
     ("¿Por qué una ruta tiene varias estrategias?",
      "Porque pasa por todas las preguntas de su cuadrante y recibe la estrategia de cada respuesta que tenga una. "
      "Aparecen en el mismo orden que las preguntas del árbol."),
-    ("¿Cómo se contesta cada pregunta del árbol?",
-     "En la pestaña <b>Árbol de decisión</b>, abajo del diagrama, la tabla dice qué dato de la ruta se usa y contra qué "
-     "valor se compara. Al pasar el cursor sobre una ruta en el mapa, cada estrategia dice su <b>porqué</b> con el valor de la ruta."),
+    ("¿Cómo se decide la estrategia de cada ruta?",
+     "Con el árbol de decisión explicado en el paso <b>Cómo se deciden las estrategias</b> de este manual. En la "
+     "herramienta, al pasar el cursor sobre una ruta en el mapa, cada estrategia dice su <b>porqué</b> con el valor de "
+     "la ruta; también están en la pestaña <b>Tabla por Ruta</b>."),
     ("Las zonas se ven todas negras", "Estás muy lejos con el contorno encendido: acércate con la rueda del mouse o apaga <b>Contorno oscuro de cada ruta</b>."),
 ]
 
@@ -417,9 +412,10 @@ def arbol_completo_html(n: int) -> str:
     completo = E.diagrama_svg(conteo, "Todo", rutas_p)
     return f"""
 <section class="paso" id="paso-{n}" data-n="{n}">
-  <div class="paso-cab"><span class="paso-num">{n}</span><div><h2>Árbol de decisión completo</h2>
-  <p class="intro">Todas las preguntas, cómo se contesta cada una con los datos de la ruta y qué estrategia recibe
-  la ruta con cada respuesta. Los números de rutas son del escenario base ({html.escape(nombre)}); en la herramienta
+  <div class="paso-cab"><span class="paso-num">{n}</span><div><h2>Cómo se deciden las estrategias</h2>
+  <p class="intro">Las estrategias que ves en el detalle del mapa (y en la pestaña <b>Tabla por Ruta</b>) salen de este
+  árbol de decisión: todas las preguntas, cómo se contesta cada una con los datos de la ruta y qué estrategia recibe la
+  ruta con cada respuesta. Los números de rutas son del escenario base ({html.escape(nombre)}); en la herramienta
   cambian con los escenarios y filtros que elijas.</p></div></div>
   <h3>Cómo se lee</h3>
   <ul class="check">
@@ -469,7 +465,7 @@ referencia = arbol_completo_html(n_arbol) + f"""
 </section>"""
 
 indice = [(0, "Antes de empezar")] + [(i, t) for i, (_, t, _) in enumerate(PASOS, start=1)] + [
-    (n_arbol, "Árbol de decisión completo"), (n_ref, "Todos los controles"), (n_ref + 1, "¿Qué hago si…?"), (n_ref + 2, "Glosario")]
+    (n_arbol, "Cómo se deciden las estrategias"), (n_ref, "Todos los controles"), (n_ref + 1, "¿Qué hago si…?"), (n_ref + 2, "Glosario")]
 nav_html = "".join(f"<li><a href='#paso-{n}' data-n='{n}'><span>{n}</span>{html.escape(t)}</a></li>" for n, t in indice)
 pasos_html = bienvenida + "".join(paso_html(i, c, t, intro) for i, (c, t, intro) in enumerate(PASOS, start=1)) + referencia
 total = n_ref + 2

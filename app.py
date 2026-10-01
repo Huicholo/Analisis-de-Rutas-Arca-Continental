@@ -913,68 +913,6 @@ def recordar_vista_mapa() -> None:
     st.iframe(_JS_VISTA.replace("__ZOOM_LETRA__", str(figura.ZOOM_BURBUJA_LETRA)), height=1)
 
 
-# Diagrama de flujo con zoom (rueda del mouse / botones) y paneo (arrastrar). El SVG lo arma
-# estrategia.diagrama_svg; el zoom se hace moviendo el viewBox del SVG, así el texto sigue nítido.
-_HTML_ARBOL = """
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet">
-<div id="barra" style="font:13px Raleway,Arial,sans-serif;display:flex;gap:6px;align-items:center;margin-bottom:6px">
-  <button data-z="1.25">+ Acercar</button><button data-z="0.8">− Alejar</button>
-  <button id="ajustar">Ver completo</button><button id="svg">Descargar diagrama (SVG)</button>
-  <span style="color:#777">Rueda del mouse = zoom · arrastrar = mover</span>
-</div>
-<div id="lienzo" style="width:100%;height:__ALTO__px;border:1px solid #ddd;border-radius:6px;overflow:hidden;
-     cursor:grab;background:#fff"></div>
-<style>button{border:1px solid #ccc;background:#f7f7f7;border-radius:6px;padding:3px 10px;cursor:pointer;font-family:Raleway,Arial,sans-serif}
-button:hover{background:#fff;border-color:#F30000;color:#F30000}</style>
-
-<script>
-const SVG = __SVG__;
-const lienzo = document.getElementById("lienzo");
-(() => {
-  lienzo.innerHTML = SVG;
-  const svg = lienzo.querySelector("svg");
-  const vb0 = svg.viewBox.baseVal; const base = {x: vb0.x, y: vb0.y, w: vb0.width, h: vb0.height};
-  svg.removeAttribute("width"); svg.removeAttribute("height");
-  svg.style.width = "100%"; svg.style.height = "100%";
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  lienzo.appendChild(svg);
-  let vb = {...base};
-  const poner = () => svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-  const zoom = (f, cx, cy) => {           // cx, cy en fracción del lienzo
-    const w = vb.w / f, h = vb.h / f;
-    if (w > base.w * 4 || w < base.w / 40) return;
-    vb = {x: vb.x + (vb.w - w) * cx, y: vb.y + (vb.h - h) * cy, w, h}; poner();
-  };
-  lienzo.addEventListener("wheel", e => {
-    e.preventDefault(); const r = lienzo.getBoundingClientRect();
-    zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
-  }, {passive: false});
-  let arr = null;
-  lienzo.addEventListener("mousedown", e => { arr = {x: e.clientX, y: e.clientY, vb: {...vb}}; lienzo.style.cursor = "grabbing"; });
-  window.addEventListener("mouseup", () => { arr = null; lienzo.style.cursor = "grab"; });
-  window.addEventListener("mousemove", e => {
-    if (!arr) return; const r = lienzo.getBoundingClientRect();
-    const esc = Math.max(vb.w / r.width, vb.h / r.height);
-    vb = {...arr.vb, x: arr.vb.x - (e.clientX - arr.x) * esc, y: arr.vb.y - (e.clientY - arr.y) * esc}; poner();
-  });
-  document.querySelectorAll("[data-z]").forEach(b => b.onclick = () => zoom(+b.dataset.z, 0.5, 0.5));
-  document.getElementById("ajustar").onclick = () => { vb = {...base}; poner(); };
-  document.getElementById("svg").onclick = () => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], {type: "image/svg+xml"}));
-    a.download = "arbol_de_decision.svg"; a.click();
-  };
-})();
-</script>
-"""
-
-
-def diagrama_con_zoom(svg: str, alto: int) -> None:
-    import json
-    html = _HTML_ARBOL.replace("__ALTO__", str(alto)).replace("__SVG__", json.dumps(svg))
-    st.iframe(html, height=alto + 50)
-
-
 def encuadre_mapa(ancho_px: int = 1100, alto_px: int = 750) -> tuple[dict, float]:
     if vista == "Vista general":
         return C.CENTRO_GENERAL, C.ZOOM_GENERAL
@@ -1082,72 +1020,10 @@ with st.expander("Descargar el mapa como imagen para presentación (JPG)", expan
 # --------------------------------------------------------------------------- tablas
 st.markdown("#### Más detalle", help="Cada pestaña muestra otra forma de ver los mismos datos. Haz clic en el "
             "nombre de una pestaña para abrirla.")
-mostrar_arbol = st.toggle(
-    "Mostrar la pestaña del árbol de decisión", value=False, key=K('mostrar_arbol'),
-    help="El árbol de decisión (diagrama, tabla y lista de estrategias por ruta) está oculto. Enciende este interruptor "
-         "para que aparezca como la primera pestaña. Las estrategias de cada ruta se ven siempre en el detalle del mapa.")
-nombres_tabs = ([ "Árbol de decisión"] if mostrar_arbol else []) + [
-    f"Tabla por {nivel}", "Comparar escenarios", "Glosario: qué significa cada cosa", "Modelo completo",
-    "Rutas sin polígono"]
-_tabs = st.tabs(nombres_tabs)
-tab_arbol = _tabs[0] if mostrar_arbol else None
-tab_nivel, tab_comp, tab_glosario, tab_modelo, tab_sin_geo = _tabs[-5:]
+tab_nivel, tab_comp, tab_glosario, tab_modelo, tab_sin_geo = st.tabs(
+    [f"Tabla por {nivel}", "Comparar escenarios", "Glosario: qué significa cada cosa", "Modelo completo",
+     "Rutas sin polígono"])
 
-if mostrar_arbol:
-    with tab_arbol:
-        conteo_arbol = {r.clave: int(evaluacion[r.clave].sum()) for r in estrategia.REGLAS}
-        rutas_p = df_f["P"].value_counts().to_dict()
-        encabezado(
-            "Árbol de decisión: qué hacer con cada ruta",
-            "Diagrama de preguntas que decide la estrategia de cada ruta según su cuadrante. Los números son rutas del "
-            "filtro actual.",
-            "Cómo leerlo: empieza arriba en 'Rutas Arca' y sigue las flechas. Cada rombo es una pregunta. Si su respuesta "
-            "(Sí o No) tiene una caja de color, la ruta recibe esa estrategia; después sigue a la siguiente pregunta, así "
-            "que puede recibir varias. Las rutas sin cuadrante (a la derecha) reciben una sola acción. El diagrama está "
-            "en el desplegable 'Ver el diagrama'; usa la rueda del mouse para acercar y arrastra para moverte.")
-        n_est = evaluacion.loc[df_f["P"].isin(estrategia.CUADRANTES), "Nº de estrategias"].value_counts().sort_index()
-        cols_n = st.columns(max(len(n_est), 1))
-        for col_m, (n, rutas) in zip(cols_n, n_est.items()):
-            col_m.metric(f"Rutas con {n} estrategia{'s' if n > 1 else ''}", f"{rutas:,}",
-                         help="Cuántas rutas (con cuadrante) reciben este número de estrategias al mismo tiempo.")
-        exp_diagrama = st.expander("Ver el diagrama del árbol de decisión", expanded=False)
-        ver = exp_diagrama.radio("Ver en el diagrama", ["Todo", "P1", "P2", "P3", "P4", "Sin cuadrante"], horizontal=True,
-                       format_func=lambda x: x if x in ("Todo", "Sin cuadrante") else f"{x} · {C.CATEGORIAS[x]['nombre']}",
-                       help="Muestra el árbol completo o sólo la parte de un cuadrante (más fácil de leer y presentar).", key=K("w1102"))
-        alto_arbol = exp_diagrama.select_slider("Alto del diagrama", [500, 650, 800, 1000, 1300], value=800,
-                                      format_func=lambda h: f"{h} px", help="Hazlo más alto si se ve muy apretado.", key=K("w1105"))
-        with exp_diagrama:
-            diagrama_con_zoom(estrategia.diagrama_svg(conteo_arbol, ver, rutas_p), alto_arbol)
-            st.caption("Rombo = pregunta. Caja de color = estrategia (con cuántas rutas la reciben). Con Sí o con No la "
-                       "ruta sigue a la siguiente pregunta, así que puede recibir varias estrategias.")
-
-        # --- Tabla del árbol: cómo se contesta cada pregunta
-        encabezado(
-            "Tabla del árbol: cómo se contesta cada pregunta",
-            "Cada estrategia del diagrama, con la pregunta que la dispara y los datos con los que se contesta.",
-            "Paso: número de la pregunta en su cuadrante. Respuesta: con qué respuesta se recibe la estrategia. Cómo se "
-            "contesta: qué datos de la ruta se comparan y contra qué (p75 = el valor que deja al 75% de las rutas abajo; "
-            "p25 = deja al 25% abajo; mediana = el de en medio).")
-        tabla_reglas = estrategia.tabla_reglas(cortes_arbol, conteo_arbol)
-        st.dataframe(tabla_reglas, width="stretch", hide_index=True,
-                     column_config={"Cómo se contesta": st.column_config.TextColumn(width="large"),
-                                    "Estrategia": st.column_config.TextColumn(width="large")})
-        st.caption("Valores de corte con lo que hay hoy: " + estrategia.resumen_cortes(cortes_arbol)
-                   + f" · zonas sin cobertura buscadas a {radio_ws:g} km de la ruta.")
-
-        cols_arbol = [C.COL_REGION, C.COL_TERRITORIO, C.COL_CEDI, C.COL_RUTA, "P", "Nº de estrategias", "Estrategias",
-                      "Respuestas del árbol", "Porque"]
-        tabla_arbol = df_f[cols_arbol].rename(columns={"P": "Cuadrante"})
-        with st.expander(f"Ver la lista de rutas y sus estrategias ({len(tabla_arbol)} rutas)"):
-            st.caption("Una fila por ruta. Si tiene varias estrategias, van separadas con “|”, en el mismo orden que su "
-                       "porqué.")
-            st.dataframe(tabla_arbol, width="stretch", hide_index=True)
-        buf_a = io.BytesIO()
-        with pd.ExcelWriter(buf_a, engine="openpyxl") as xw:
-            tabla_arbol.to_excel(xw, sheet_name="Rutas", index=False)
-            tabla_reglas.to_excel(xw, sheet_name="Árbol", index=False)
-        st.download_button("Descargar árbol y estrategias (Excel)", buf_a.getvalue(),
-                           file_name=f"arbol_decision_{escenario}_{nombre_caso(caso)}.xlsx".lower())
 with tab_nivel:
     encabezado(
         f"Tabla por {nivel}",
